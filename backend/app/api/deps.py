@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.security import read_session_token
 from app.domain.enums import UserRole
-from app.domain.errors import AdminRequired, AuthenticationFailed, RateLimited
+from app.domain.errors import AccountDisabled, AdminRequired, AuthenticationFailed, RateLimited
 from app.infrastructure.database import get_session
 from app.infrastructure.models import UserModel
 from app.services.user_service import UserService
@@ -24,7 +24,8 @@ async def optional_user(request: Request, session: SessionDep) -> UserModel | No
         return None
     try:
         user_id, _ = read_session_token(token)
-        return await UserService(session).require_user(user_id)
+        user = await UserService(session).require_user(user_id)
+        return user if user.is_active else None
     except Exception:
         # Una cookie corrupta o caducada equivale a no tener sesion.
         return None
@@ -36,7 +37,10 @@ async def current_user(request: Request, session: SessionDep) -> UserModel:
         raise AuthenticationFailed("A session is required for this operation.")
     # El rol del token es solo una pista: el usuario se relee de la base.
     user_id, _ = read_session_token(token)
-    return await UserService(session).require_user(user_id)
+    user = await UserService(session).require_user(user_id)
+    if not user.is_active:
+        raise AccountDisabled("Tu cuenta esta desactivada. Contacta al administrador.")
+    return user
 
 
 async def require_admin(user: Annotated[UserModel, Depends(current_user)]) -> UserModel:

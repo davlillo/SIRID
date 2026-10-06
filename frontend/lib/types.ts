@@ -33,6 +33,16 @@ export type User = {
   role: UserRole;
 };
 
+export type Client = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  dui: string;
+  phone: string;
+  email: string;
+  is_active: boolean;
+};
+
 export type FacilityImage = {
   url: string;
   alt_text: string;

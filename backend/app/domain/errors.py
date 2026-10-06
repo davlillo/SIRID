@@ -46,6 +46,29 @@ class UserNotFound(DomainError):
     slug = "user-not-found"
 
 
+class ClientDuiTaken(DomainError):
+    status = 409
+    title = "DUI de cliente ya registrado"
+    slug = "client-dui-taken"
+
+
+class ClientEmailTaken(DomainError):
+    status = 409
+    title = "Correo de cliente ya registrado"
+    slug = "client-email-taken"
+
+
+class ClientNotFound(DomainError):
+    status = 404
+    title = "Cliente no encontrado"
+    slug = "client-not-found"
+
+
+class AccountDisabled(AuthenticationFailed):
+    title = "Cuenta desactivada"
+    slug = "account-disabled"
+
+
 class FacilityNotFound(DomainError):
     status = 404
     title = "Facility not found"
@@ -72,13 +95,13 @@ class InvalidSchedule(DomainError):
 
 class InvalidRate(DomainError):
     status = 422
-    title = "Invalid rate"
+    title = "Tarifa inválida"
     slug = "invalid-rate"
 
 
 class RateNotAvailable(DomainError):
     status = 422
-    title = "No active rate for the requested period"
+    title = "No hay una tarifa activa para el período solicitado"
     slug = "rate-not-available"
 
 

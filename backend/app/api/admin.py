@@ -16,6 +16,7 @@ from app.schemas.admin import (
     NotificationLogResponse,
     ReservationEventResponse,
 )
+from app.schemas.client import ClientCreate, ClientResponse, ClientUpdate
 from app.schemas.common import Page
 from app.schemas.facility import (
     FacilityCreate,
@@ -30,11 +31,50 @@ from app.schemas.facility import (
 )
 from app.schemas.reservation import AdminReservationResponse, ReservationNoteRequest
 from app.services.facility_service import FacilityService
+from app.services.client_service import ClientService
 from app.services.rate_service import RateService
 from app.services.reservation_service import ReservationService
 from app.services.schedule_service import ScheduleService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+# --------------------------------------------------------------------------- #
+# Clientes
+# --------------------------------------------------------------------------- #
+
+
+@router.get("/clients", response_model=list[ClientResponse])
+async def list_clients(
+    session: SessionDep, staff: CatalogStaffUser
+) -> list[ClientResponse]:
+    clients = await ClientService(session).list_registered()
+    return [ClientResponse.model_validate(client) for client in clients]
+
+
+@router.post("/clients", response_model=ClientResponse, status_code=201)
+async def create_client(
+    payload: ClientCreate, session: SessionDep, staff: CatalogStaffUser
+) -> ClientResponse:
+    client = await ClientService(session).create(payload.model_dump())
+    return ClientResponse.model_validate(client)
+
+
+@router.patch(
+    "/clients/{client_id}",
+    response_model=ClientResponse,
+    summary="Actualiza, da de baja o reactiva a un cliente",
+)
+async def update_client(
+    client_id: UUID,
+    payload: ClientUpdate,
+    session: SessionDep,
+    staff: CatalogStaffUser,
+) -> ClientResponse:
+    client = await ClientService(session).update(
+        client_id, payload.model_dump(exclude_unset=True)
+    )
+    return ClientResponse.model_validate(client)
 
 
 # --------------------------------------------------------------------------- #
@@ -296,5 +336,6 @@ async def publish_rate(
         facility_id,
         amount=payload.amount,
         effective_from=payload.effective_from,
+        minimum_minutes=payload.minimum_minutes,
     )
     return RateResponse.model_validate(rate)

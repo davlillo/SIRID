@@ -12,7 +12,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useContext, useMemo } from "react";
 
 import { ApiError, authApi } from "@/lib/api";
-import type { User } from "@/lib/types";
+import type { User, UserRole } from "@/lib/types";
 import { useToast } from "../ui/toast-context";
 
 type AuthContextValue = {
@@ -21,6 +21,7 @@ type AuthContextValue = {
   isAdmin: boolean;
   canManageCatalog: boolean;
   loginWithGoogle: (credential: string) => Promise<void>;
+  loginForDevelopment: (role: UserRole) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -58,6 +59,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
   });
 
+  const developmentLogin = useMutation({
+    mutationFn: authApi.loginForDevelopment,
+    onSuccess: (user) => {
+      queryClient.setQueryData(SESSION_QUERY_KEY, user);
+      queryClient.invalidateQueries({ queryKey: ["reservations"] });
+      notify(`Sesion de desarrollo iniciada como ${user.role}.`, "success");
+    },
+    onError: (error) => {
+      notify(
+        error instanceof ApiError ? error.detail : "No se pudo abrir la sesion de desarrollo.",
+        "error",
+      );
+    },
+  });
+
   const logout = useMutation({
     mutationFn: authApi.logout,
     onSuccess: () => {
@@ -78,11 +94,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loginWithGoogle: async (credential: string) => {
         await login.mutateAsync(credential);
       },
+      loginForDevelopment: async (role: UserRole) => {
+        await developmentLogin.mutateAsync(role);
+      },
       logout: async () => {
         await logout.mutateAsync();
       },
     }),
-    [session.data, session.isPending, login, logout],
+    [session.data, session.isPending, login, developmentLogin, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

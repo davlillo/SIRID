@@ -62,8 +62,8 @@ credenciales SMTP los correos se registran como `SKIPPED` y el sistema sigue fun
 
 `ADMIN_EMAILS` es una lista separada por comas: esos correos reciben rol `ADMIN` al iniciar
 sesion. La promocion viene de la configuracion del servidor, nunca del navegador.
-`ENCARGADO_EMAILS` funciona igual para el rol `ENCARGADO`, limitado a instalaciones,
-horarios y tarifas. Si un correo aparece en ambas listas, prevalece `ADMIN`.
+`ENCARGADO_EMAILS` funciona igual para el rol `ENCARGADO`, limitado al registro de
+clientes y la gestion de tarifas. Si un correo aparece en ambas listas, prevalece `ADMIN`.
 
 ## Notas de implementacion
 

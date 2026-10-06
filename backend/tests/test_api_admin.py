@@ -352,6 +352,87 @@ class TestCatalog:
         assert updated.json()["quoted_amount"] == "65.00"
         assert original_after_update.json()["quoted_amount"] == "40.00"
 
+    async def test_publishing_can_change_the_time_unit_of_the_rate(
+        self, client, encargado, facility
+    ):
+        authenticate(client, encargado)
+        today = datetime.now(settings.timezone).date()
+
+        published = await client.post(
+            f"/v1/admin/facilities/{facility.id}/rates/publish",
+            json={
+                "amount": "90.00",
+                "effective_from": today.isoformat(),
+                "minimum_minutes": 120,
+            },
+        )
+
+        assert published.status_code == 201
+        assert published.json()["minimum_minutes"] == 120
+        assert published.json()["amount"] == "90.00"
+
+    async def test_publishing_keeps_the_time_unit_when_it_is_not_sent(
+        self, client, encargado, facility
+    ):
+        authenticate(client, encargado)
+        today = datetime.now(settings.timezone).date()
+
+        published = await client.post(
+            f"/v1/admin/facilities/{facility.id}/rates/publish",
+            json={"amount": "70.00", "effective_from": today.isoformat()},
+        )
+
+        assert published.json()["minimum_minutes"] == 60
+
+    async def test_publishing_rejects_an_invalid_time_unit_in_spanish(
+        self, client, encargado, facility
+    ):
+        authenticate(client, encargado)
+        today = datetime.now(settings.timezone).date()
+
+        response = await client.post(
+            f"/v1/admin/facilities/{facility.id}/rates/publish",
+            json={
+                "amount": "70.00",
+                "effective_from": today.isoformat(),
+                "minimum_minutes": 5,
+            },
+        )
+
+        assert response.status_code == 422
+        assert response.json()["detail"] == "La duración del bloque está fuera del rango permitido."
+
+    async def test_publishing_closes_every_overlapping_rate(
+        self, client, customer, encargado, facility
+    ):
+        today = datetime.now(settings.timezone).date()
+        authenticate(client, encargado)
+        await client.post(
+            f"/v1/admin/facilities/{facility.id}/rates",
+            json={
+                "name": "Tarifa de prueba",
+                "amount": "80.00",
+                "currency": "USD",
+                "minimum_minutes": 60,
+                "valid_from": today.isoformat(),
+            },
+        )
+
+        published = await client.post(
+            f"/v1/admin/facilities/{facility.id}/rates/publish",
+            json={"amount": "65.00", "effective_from": today.isoformat()},
+        )
+        assert published.status_code == 201
+
+        authenticate(client, customer)
+        reservation = await client.post(
+            "/v1/reservations",
+            json={"facility_id": str(facility.id), **slot_at(18)},
+        )
+
+        assert reservation.status_code == 201
+        assert reservation.json()["quoted_amount"] == "65.00"
+
     async def test_stats_count_pending_reservations(
         self, client, customer, admin, facility
     ):

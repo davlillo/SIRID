@@ -65,6 +65,26 @@ async def test_configured_email_becomes_encargado(client, google_verifier, monke
     assert response.json()["role"] == "ENCARGADO"
 
 
+async def test_development_login_creates_an_encargado_session(client, monkeypatch):
+    monkeypatch.setattr(settings, "dev_auth_enabled", True)
+    monkeypatch.setattr(settings, "environment", "development")
+
+    response = await client.post("/v1/auth/development", json={"role": "ENCARGADO"})
+
+    assert response.status_code == 200
+    assert response.json()["role"] == "ENCARGADO"
+    assert "HttpOnly" in response.headers["set-cookie"]
+
+
+async def test_development_login_is_rejected_in_production(client, monkeypatch):
+    monkeypatch.setattr(settings, "dev_auth_enabled", True)
+    monkeypatch.setattr(settings, "environment", "production")
+
+    response = await client.post("/v1/auth/development", json={"role": "ADMIN"})
+
+    assert response.status_code == 401
+
+
 async def test_me_requires_a_session(client):
     assert (await client.get("/v1/auth/me")).status_code == 401
 

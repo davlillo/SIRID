@@ -85,11 +85,13 @@ Ejemplo de creacion:
 | POST | `/admin/reservations/{id}/confirm` | ADMIN |
 | POST | `/admin/reservations/{id}/cancel` | ADMIN |
 | POST | `/admin/reservations/{id}/complete` | ADMIN |
+| GET | `/admin/clients` | ADMIN, ENCARGADO |
+| POST | `/admin/clients` | ADMIN, ENCARGADO |
 | GET | `/admin/facilities` | ADMIN, ENCARGADO |
 | GET | `/admin/facilities/{id}` | ADMIN, ENCARGADO |
-| POST | `/admin/facilities` | ADMIN, ENCARGADO |
-| PATCH | `/admin/facilities/{id}` | ADMIN, ENCARGADO |
-| POST | `/admin/facilities/{id}/schedules` | ADMIN, ENCARGADO |
+| POST | `/admin/facilities` | ADMIN |
+| PATCH | `/admin/facilities/{id}` | ADMIN |
+| POST | `/admin/facilities/{id}/schedules` | ADMIN |
 | POST | `/admin/facilities/{id}/rates` | ADMIN, ENCARGADO |
 | POST | `/admin/facilities/{id}/rates/publish` | ADMIN, ENCARGADO |
 

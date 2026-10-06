@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:3000"
 
     google_client_id: str = ""
+    dev_auth_enabled: bool = False
     jwt_secret: str
     jwt_algorithm: str = "HS256"
     session_cookie_name: str = "dvl_session"
@@ -30,7 +31,7 @@ class Settings(BaseSettings):
 
     # Correos que reciben rol ADMIN la primera vez que inician sesion.
     admin_emails: str = ""
-    # Correos que gestionan instalaciones, horarios y tarifas.
+    # Correos que registran clientes y gestionan tarifas.
     encargado_emails: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")

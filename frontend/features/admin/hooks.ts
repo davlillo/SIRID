@@ -9,6 +9,59 @@ export function useAdminStats() {
   return useQuery({ queryKey: ["admin", "stats"], queryFn: adminApi.stats });
 }
 
+export function useAdminClients() {
+  return useQuery({
+    queryKey: ["admin", "clients"],
+    queryFn: adminApi.clients,
+  });
+}
+
+export function useUpdateClient() {
+  const queryClient = useQueryClient();
+  const { notify } = useToast();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: string;
+      body: Parameters<typeof adminApi.updateClient>[1];
+    }) => adminApi.updateClient(id, body),
+    onSuccess: (client, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "clients"] });
+      if (variables.body.is_active === false) notify("Cliente dado de baja.", "success");
+      else if (variables.body.is_active === true) notify("Cliente reactivado.", "success");
+      else notify(`Datos de ${client.first_name} actualizados.`, "success");
+    },
+    onError: (error) => {
+      notify(
+        error instanceof ApiError ? error.detail : "No se pudo actualizar el cliente.",
+        "error",
+      );
+    },
+  });
+}
+
+export function useCreateClient() {
+  const queryClient = useQueryClient();
+  const { notify } = useToast();
+
+  return useMutation({
+    mutationFn: adminApi.createClient,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "clients"] });
+      notify("Cliente registrado.", "success");
+    },
+    onError: (error) => {
+      notify(
+        error instanceof ApiError ? error.detail : "No se pudo registrar el cliente.",
+        "error",
+      );
+    },
+  });
+}
+
 export function useAdminReservations(filters: AdminReservationFilters) {
   return useQuery({
     queryKey: ["admin", "reservations", filters],
@@ -146,14 +199,17 @@ export function usePublishRate() {
       id,
       amount,
       effectiveFrom,
+      minimumMinutes,
     }: {
       id: string;
       amount: string;
       effectiveFrom: string;
+      minimumMinutes: number;
     }) =>
       adminApi.publishRate(id, {
         amount,
         effective_from: effectiveFrom,
+        minimum_minutes: minimumMinutes,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "facilities"] });

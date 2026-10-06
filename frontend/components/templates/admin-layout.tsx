@@ -4,15 +4,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { BrandMark } from "@/components/atoms/brand-mark";
+import { ButtonLink } from "@/components/atoms/button";
 import { LoadingBlock } from "@/components/atoms/states";
 import { TechnicalLabel } from "@/components/atoms/technical-label";
-import { GoogleAuthButton, SessionMenu } from "@/features/auth/auth-button";
+import { SessionMenu } from "@/features/auth/auth-button";
 import { useAuth } from "@/features/auth/auth-context";
 import { cn } from "@/lib/cn";
 
 const SECTIONS = [
   { href: "/admin", label: "Resumen" },
   { href: "/admin/reservas", label: "Reservas" },
+  { href: "/admin/clientes", label: "Clientes" },
   { href: "/admin/instalaciones", label: "Instalaciones" },
 ];
 
@@ -53,7 +55,7 @@ export function AdminLayout({
         </p>
         {!user ? (
           <div className="mt-8">
-            <GoogleAuthButton />
+            <ButtonLink href="/ingresar">Iniciar sesion</ButtonLink>
           </div>
         ) : null}
       </div>
@@ -78,7 +80,10 @@ export function AdminLayout({
             <TechnicalLabel>PANEL</TechnicalLabel>
             <ul className="mt-3 flex gap-2 overflow-x-auto lg:flex-col lg:overflow-visible">
               {SECTIONS.filter(
-                (section) => isAdmin || section.href === "/admin/instalaciones",
+                (section) =>
+                  isAdmin ||
+                  section.href === "/admin/clientes" ||
+                  section.href === "/admin/instalaciones",
               ).map((section) => {
                 const active =
                   section.href === "/admin"

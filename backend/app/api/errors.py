@@ -35,6 +35,48 @@ def problem(
     )
 
 
+FIELD_LABELS = {
+    "first_name": "Los nombres",
+    "last_name": "Los apellidos",
+    "dui": "El DUI",
+    "phone": "El teléfono",
+    "email": "El correo electrónico",
+    "name": "El nombre",
+    "amount": "El precio",
+    "effective_from": "La fecha de inicio",
+    "valid_from": "La fecha de inicio",
+    "minimum_minutes": "La duración del bloque",
+    "capacity": "La capacidad",
+    "description": "La descripción",
+    "slug": "El identificador",
+}
+
+TYPE_MESSAGES = {
+    "missing": "es obligatorio.",
+    "string_too_short": "es demasiado corto.",
+    "string_too_long": "es demasiado largo.",
+    "string_pattern_mismatch": "no tiene el formato correcto.",
+    "greater_than": "está fuera del rango permitido.",
+    "greater_than_equal": "está fuera del rango permitido.",
+    "less_than": "está fuera del rango permitido.",
+    "less_than_equal": "está fuera del rango permitido.",
+}
+
+
+def describe_validation_error(error: dict) -> str:
+    """Mensaje en español para el primer error de validacion de Pydantic."""
+    location = [str(part) for part in error.get("loc", ()) if part not in ("body", "query")]
+    field = location[-1] if location else ""
+    label = FIELD_LABELS.get(field, f"El campo «{field}»" if field else "Los datos enviados")
+
+    if field == "email" and error.get("type") != "missing":
+        return f"{label} no es válido."
+    if error.get("type") == "value_error":
+        message = str(error.get("msg", "")).removeprefix("Value error, ")
+        return message or f"{label} no es válido."
+    return f"{label} {TYPE_MESSAGES.get(error.get('type', ''), 'no es válido.')}"
+
+
 def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(DomainError)
     async def handle_domain_error(request: Request, error: DomainError) -> JSONResponse:
@@ -50,12 +92,11 @@ def register_error_handlers(app: FastAPI) -> None:
     async def handle_validation(
         request: Request, error: RequestValidationError
     ) -> JSONResponse:
-        first = error.errors()[0] if error.errors() else {}
-        field = ".".join(str(part) for part in first.get("loc", [])[1:]) or "payload"
+        errors = error.errors()
         return problem(
             status=422,
-            title="Validation error",
-            detail=f"{field}: {first.get('msg', 'invalid value')}",
+            title="Datos inválidos",
+            detail=describe_validation_error(errors[0]) if errors else "Datos inválidos.",
             instance=request.url.path,
             slug="validation-error",
         )

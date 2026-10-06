@@ -48,7 +48,7 @@ class RateService:
         local_date = interval.start.astimezone(settings.timezone).date()
         rate = await self.rates.active_on(facility_id, local_date)
         if rate is None:
-            raise RateNotAvailable("The facility has no active rate for that date.")
+            raise RateNotAvailable("La instalación no tiene una tarifa activa para esa fecha.")
 
         assert_minimum_duration(interval, rate.minimum_minutes)
         return Quote(
@@ -65,12 +65,12 @@ class RateService:
 
     async def create(self, facility_id: UUID, payload: dict) -> FacilityRateModel:
         if payload["amount"] < 0:
-            raise InvalidRate("`amount` cannot be negative.")
+            raise InvalidRate("El precio no puede ser negativo.")
         if payload["minimum_minutes"] <= 0:
-            raise InvalidRate("`minimum_minutes` must be positive.")
+            raise InvalidRate("La duración del bloque debe ser mayor que cero.")
         valid_until = payload.get("valid_until")
         if valid_until is not None and valid_until < payload["valid_from"]:
-            raise InvalidRate("`valid_until` cannot precede `valid_from`.")
+            raise InvalidRate("La fecha final no puede ser anterior a la fecha inicial.")
 
         rate = self.rates.add(
             FacilityRateModel(
@@ -89,25 +89,34 @@ class RateService:
         return rate
 
     async def publish_update(
-        self, facility_id: UUID, *, amount: Decimal, effective_from: date
+        self,
+        facility_id: UUID,
+        *,
+        amount: Decimal,
+        effective_from: date,
+        minimum_minutes: int | None = None,
     ) -> FacilityRateModel:
         """Publica una nueva version y conserva la tarifa anterior como historial."""
         today = datetime.now(settings.timezone).date()
         if effective_from < today:
-            raise InvalidRate("`effective_from` cannot be in the past.")
+            raise InvalidRate("La nueva tarifa no puede comenzar en una fecha pasada.")
         if amount < 0:
-            raise InvalidRate("`amount` cannot be negative.")
+            raise InvalidRate("El precio no puede ser negativo.")
 
-        current = await self.rates.active_on(facility_id, effective_from)
-        if current is None:
-            raise RateNotAvailable("The facility has no active rate to update on that date.")
+        overlapping = await self.rates.active_rates_on(facility_id, effective_from)
+        if not overlapping:
+            raise RateNotAvailable(
+                "La instalación no tiene una tarifa activa para actualizar en esa fecha."
+            )
+        current = overlapping[0]
 
         previous_valid_until = current.valid_until
-        if current.valid_from == effective_from:
-            # No existe un intervalo valido para conservar dentro del mismo dia.
-            current.is_active = False
-        else:
-            current.valid_until = effective_from - timedelta(days=1)
+        for previous in overlapping:
+            if previous.valid_from == effective_from:
+                # No existe un intervalo valido para conservar dentro del mismo dia.
+                previous.is_active = False
+            else:
+                previous.valid_until = effective_from - timedelta(days=1)
 
         rate = self.rates.add(
             FacilityRateModel(
@@ -115,7 +124,7 @@ class RateService:
                 name=current.name,
                 amount=amount,
                 currency=current.currency,
-                minimum_minutes=current.minimum_minutes,
+                minimum_minutes=minimum_minutes or current.minimum_minutes,
                 valid_from=effective_from,
                 valid_until=previous_valid_until,
                 is_active=True,

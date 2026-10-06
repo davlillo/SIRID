@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Response
 from app.api.deps import CurrentUser, SessionDep, login_rate_limit
 from app.core.config import settings
 from app.infrastructure.google_identity import GoogleIdentityVerifier, GoogleVerifier
-from app.schemas.auth import GoogleLoginRequest, UserResponse
+from app.schemas.auth import DevelopmentLoginRequest, GoogleLoginRequest, UserResponse
 from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -44,6 +44,22 @@ async def login_with_google(
     verifier: VerifierDep,
 ) -> UserResponse:
     result = await AuthService(session, verifier).authenticate_google(payload.credential)
+    _set_session_cookie(response, result.token, result.max_age_seconds)
+    return UserResponse.model_validate(result.user)
+
+
+@router.post(
+    "/development",
+    response_model=UserResponse,
+    dependencies=[Depends(login_rate_limit)],
+    summary="Abre una sesion local solo en el entorno de desarrollo",
+)
+async def login_for_development(
+    payload: DevelopmentLoginRequest,
+    response: Response,
+    session: SessionDep,
+) -> UserResponse:
+    result = await AuthService(session).authenticate_development(payload.role)
     _set_session_cookie(response, result.token, result.max_age_seconds)
     return UserResponse.model_validate(result.user)
 

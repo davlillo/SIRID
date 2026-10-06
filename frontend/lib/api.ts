@@ -9,6 +9,7 @@ import type {
   AdminReservation,
   AdminStats,
   Availability,
+  Client,
   Facility,
   FacilityDetail,
   NotificationLog,
@@ -17,6 +18,7 @@ import type {
   Reservation,
   Schedule,
   User,
+  UserRole,
   Zone,
 } from "./types";
 
@@ -104,6 +106,8 @@ function query(params: Record<string, string | number | boolean | undefined | nu
 export const authApi = {
   loginWithGoogle: (credential: string) =>
     request<User>("/auth/google", { method: "POST", body: { credential } }),
+  loginForDevelopment: (role: UserRole) =>
+    request<User>("/auth/development", { method: "POST", body: { role } }),
   me: () => request<User>("/auth/me"),
   logout: () => request<void>("/auth/logout", { method: "POST" }),
 };
@@ -167,6 +171,25 @@ export type AdminReservationFilters = {
 };
 
 export const adminApi = {
+  clients: () => request<Client[]>("/admin/clients"),
+  createClient: (body: {
+    first_name: string;
+    last_name: string;
+    dui: string;
+    phone: string;
+    email: string;
+  }) => request<Client>("/admin/clients", { method: "POST", body }),
+  updateClient: (
+    id: string,
+    body: Partial<{
+      first_name: string;
+      last_name: string;
+      dui: string;
+      phone: string;
+      email: string;
+      is_active: boolean;
+    }>,
+  ) => request<Client>(`/admin/clients/${id}`, { method: "PATCH", body }),
   stats: () => request<AdminStats>("/admin/stats"),
   reservations: (filters: AdminReservationFilters = {}) =>
     request<Page<AdminReservation>>(`/admin/reservations${query(filters)}`),
@@ -201,6 +224,9 @@ export const adminApi = {
     }),
   createRate: (id: string, body: Record<string, unknown>) =>
     request<Rate>(`/admin/facilities/${id}/rates`, { method: "POST", body }),
-  publishRate: (id: string, body: { amount: string; effective_from: string }) =>
+  publishRate: (
+    id: string,
+    body: { amount: string; effective_from: string; minimum_minutes?: number },
+  ) =>
     request<Rate>(`/admin/facilities/${id}/rates/publish`, { method: "POST", body }),
 };
