@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" role="img" aria-label="Vista superior esquematica del estadio con graderios">
+  <rect width="800" height="500" fill="#49352C"/>
+  <g opacity="0.12" stroke="#F7F3EA" stroke-width="1">
+    <path d="M0 40h800M0 80h800M0 120h800M0 160h800M0 200h800M0 240h800M0 280h800M0 320h800M0 360h800M0 400h800M0 440h800M0 480h800"/>
+    <path d="M40 0v500M120 0v500M200 0v500M280 0v500M360 0v500M440 0v500M520 0v500M600 0v500M680 0v500M760 0v500"/>
+  </g>
+  <ellipse cx="400" cy="250" rx="350" ry="215" fill="#C65F45" opacity="0.35" stroke="#E8D8BE" stroke-width="3"/>
+  <ellipse cx="400" cy="250" rx="300" ry="178" fill="#49352C" stroke="#E8D8BE" stroke-width="2" opacity="0.75"/>
+  <rect x="150" y="128" width="500" height="244" fill="#65705A"/>
+  <g fill="none" stroke="#F7F3EA" stroke-width="3" opacity="0.9">
+    <rect x="164" y="142" width="472" height="216"/>
+    <path d="M400 142v216"/>
+    <circle cx="400" cy="250" r="44"/>
+    <rect x="164" y="195" width="58" height="110"/>
+    <rect x="578" y="195" width="58" height="110"/>
+  </g>
+  <g font-family="'IBM Plex Mono', monospace" font-size="16" letter-spacing="3" fill="#E8D8BE">
+    <text x="40" y="40">DVL / STADIUM</text>
+    <text x="760" y="40" text-anchor="end">CAP. 5000</text>
+    <text x="40" y="476">GRADERIOS NORTE · SUR · PALCO</text>
+  </g>
+  <rect x="0" y="0" width="800" height="500" fill="none" stroke="#191817" stroke-width="6"/>
+</svg>

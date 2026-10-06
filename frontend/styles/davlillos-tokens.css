@@ -1,0 +1,54 @@
+/**
+ * DAVLILLOS design tokens.
+ * Fuente: davlillos-design-system-v1.0/ui/tokens.css y ui/tokens.json.
+ * Copiado, no reinterpretado. Los valores de marca no se editan aqui.
+ */
+
+:root {
+  --dvl-coffee: #49352c;
+  --dvl-terracotta: #c65f45;
+  --dvl-sand: #e8d8be;
+  --dvl-ivory: #f7f3ea;
+  --dvl-olive: #65705a;
+  --dvl-charcoal: #191817;
+
+  --dvl-bg: var(--dvl-ivory);
+  --dvl-fg: var(--dvl-charcoal);
+  --dvl-surface: var(--dvl-sand);
+  --dvl-border: rgba(25, 24, 23, 0.18);
+  --dvl-primary: var(--dvl-terracotta);
+  --dvl-secondary: var(--dvl-olive);
+  --dvl-depth: var(--dvl-coffee);
+
+  /* Estados de reserva. Definidos en spect/13-especificacion-visual-y-maquetas.md */
+  --dvl-state-available: #65705a;
+  --dvl-state-pending: #e8d8be;
+  --dvl-state-confirmed: #4c5644;
+  --dvl-state-cancelled: rgba(25, 24, 23, 0.45);
+  --dvl-state-completed: #49352c;
+  --dvl-state-error: #8c2f22;
+
+  --dvl-radius-xs: 2px;
+  --dvl-radius-sm: 6px;
+  --dvl-radius-md: 12px;
+  --dvl-radius-lg: 20px;
+
+  --dvl-border-thin: 1px;
+  --dvl-border-technical: 1.5px;
+
+  --dvl-motion-fast: 120ms;
+  --dvl-motion-base: 220ms;
+  --dvl-motion-slow: 420ms;
+  --dvl-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  --dvl-font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --dvl-font-body: "IBM Plex Sans", "Inter", system-ui, sans-serif;
+  --dvl-font-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
+}
+
+[data-theme="dark"] {
+  --dvl-bg: #191817;
+  --dvl-fg: #f7f3ea;
+  --dvl-surface: #242220;
+  --dvl-border: #3a3733;
+}

@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Sistema de reservas deportivas",
+    "output": "reservas-architecture.html",
+    "quality_profile": "showcase"
+  },
+  "layout": {
+    "mode": "grid",
+    "origin": [40, 60],
+    "cols": 4,
+    "gapX": 48,
+    "gapY": 72,
+    "cellW": 220,
+    "cellH": 100
+  },
+  "components": [
+    { "id": "usuarios", "type": "external", "label": "Usuarios", "sublabel": "Cliente / Administrador", "pos": [40, 180], "size": [180, 72] },
+    { "id": "instalaciones", "type": "backend", "label": "Instalaciones", "sublabel": "Catálogo y configuración", "pos": [310, 180], "size": [180, 72] },
+    { "id": "reservas", "type": "backend", "label": "Reservas", "sublabel": "Estados y operaciones", "pos": [580, 180], "size": [180, 72] },
+    { "id": "auditoria", "type": "security", "label": "Auditoría", "sublabel": "Eventos de reserva", "pos": [850, 180], "size": [180, 72] },
+    { "id": "disponibilidad", "type": "backend", "label": "Disponibilidad", "sublabel": "Horarios y tarifas", "pos": [310, 360], "size": [180, 72] },
+    { "id": "notificaciones", "type": "messagebus", "label": "Notificaciones", "sublabel": "Registro y entrega", "pos": [580, 360], "size": [180, 72] },
+    { "id": "autenticacion", "type": "security", "label": "Autenticación", "sublabel": "Google / sesión", "pos": [40, 360], "size": [180, 72] }
+  ],
+  "connections": [
+    { "id": "usuarios-auth", "from": "usuarios", "to": "autenticacion", "label": "autentica", "fromSide": "left", "toSide": "left", "route": "orthogonal-v", "via": [[20, 216], [20, 396]], "labelAt": [20, 306] },
+    { "id": "auth-usuarios", "from": "autenticacion", "to": "usuarios", "label": "crea / actualiza", "fromSide": "right", "toSide": "right", "route": "orthogonal-v", "via": [[240, 396], [240, 216]], "labelAt": [240, 306] },
+    { "id": "usuarios-reservas", "from": "usuarios", "to": "reservas", "label": "solicita", "fromSide": "top", "toSide": "top", "route": "orthogonal-h", "via": [[130, 120], [670, 120]], "labelAt": [400, 120] },
+    { "id": "catalogo", "from": "instalaciones", "to": "reservas", "label": "instalación", "route": "orthogonal-h" },
+    { "id": "reservas-disponibilidad", "from": "reservas", "to": "disponibilidad", "label": "consulta", "route": "orthogonal-v" },
+    { "id": "disponibilidad-instalaciones", "from": "disponibilidad", "to": "instalaciones", "label": "horarios / tarifas", "route": "orthogonal-h" },
+    { "id": "reservas-auditoria", "from": "reservas", "to": "auditoria", "label": "registra eventos", "route": "orthogonal-h" },
+    { "id": "reservas-notificaciones", "from": "reservas", "to": "notificaciones", "label": "notifica", "route": "orthogonal-v" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Dominio", "items": ["Usuario, Instalación y Reserva", "Enums para roles, tipos y estados"] },
+    { "dot": "emerald", "title": "Aplicación", "items": ["Servicios coordinan reservas", "Disponibilidad combina horarios y tarifas"] },
+    { "dot": "rose", "title": "Trazabilidad", "items": ["Cada cambio genera EventoReserva", "Las notificaciones dejan registro"] }
+  ]
+}

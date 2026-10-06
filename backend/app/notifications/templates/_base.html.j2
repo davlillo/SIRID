@@ -1,0 +1,58 @@
+{# Plantilla base. Estilos en linea: los clientes de correo ignoran <style>. #}
+<!doctype html>
+<html lang="es">
+  <body style="margin:0;padding:0;background:#F7F3EA;font-family:'Helvetica Neue',Arial,sans-serif;color:#191817;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F7F3EA;padding:32px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#FFFFFF;border:1px solid rgba(25,24,23,0.18);">
+            <tr>
+              <td style="background:{{ header_color | default('#191817') }};padding:24px 28px;">
+                <div style="font-size:18px;font-weight:700;letter-spacing:-0.04em;color:#F7F3EA;">SIRID</div>
+                <div style="margin-top:6px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.18em;color:#E8D8BE;text-transform:uppercase;">
+                  {{ header_label }}
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:28px;">
+                <h1 style="margin:0;font-size:24px;line-height:1.15;letter-spacing:-0.02em;">{% block title %}{% endblock %}</h1>
+                <p style="margin:16px 0 0;font-size:15px;line-height:1.6;color:rgba(25,24,23,0.75);">
+                  Hola {{ customer_name }}, {% block intro %}{% endblock %}
+                </p>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;border:1px solid rgba(25,24,23,0.18);background:#F7F3EA;">
+                  {% for label, value in [
+                    ('Instalacion', facility_name),
+                    ('Ubicacion', facility_location),
+                    ('Fecha', date_label),
+                    ('Horario', time_label),
+                    ('Importe', amount),
+                    ('Estado', status)
+                  ] %}
+                  <tr>
+                    <td style="padding:12px 16px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:#65705A;border-bottom:1px solid rgba(25,24,23,0.08);width:38%;">{{ label }}</td>
+                    <td style="padding:12px 16px;font-size:14px;font-weight:600;border-bottom:1px solid rgba(25,24,23,0.08);">{{ value }}</td>
+                  </tr>
+                  {% endfor %}
+                </table>
+
+                {% block extra %}{% endblock %}
+
+                <a href="{{ frontend_url }}/mis-reservas"
+                   style="display:inline-block;margin-top:24px;background:#C65F45;color:#F7F3EA;padding:14px 22px;font-size:14px;font-weight:600;text-decoration:none;">
+                  Ver mis reservas
+                </a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 28px;border-top:1px solid rgba(25,24,23,0.12);font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:rgba(25,24,23,0.55);">
+                ID {{ reservation_id[:8] }} · SIRID RESERVA DEPORTIVA
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

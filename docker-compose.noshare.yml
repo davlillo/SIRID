@@ -1,0 +1,24 @@
+# Variante sin bind mounts.
+#
+# Docker Desktop no siempre puede compartir la unidad donde vive este repositorio.
+# Si `docker compose up` falla con:
+#
+#   error while creating mount source path ... file exists
+#
+# la solucion correcta es habilitar la unidad en Settings -> Resources -> File Sharing.
+# Mientras tanto este override deja el codigo dentro de la imagen, sin montar nada:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.noshare.yml up --build
+#
+# El precio es que no hay recarga en caliente: cada cambio exige `--build`.
+
+services:
+  backend:
+    volumes: []
+    command: >
+      sh -c "alembic upgrade head
+      && if [ \"$$SEED_ON_START\" = \"true\" ]; then python -m app.seeds.seed_demo; fi
+      && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  frontend:
+    volumes: []

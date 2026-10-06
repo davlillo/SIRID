@@ -1,0 +1,15 @@
+{% extends "_base.html.j2" %}
+
+{% block title %}Tu reserva esta confirmada.{% endblock %}
+
+{% block intro %}
+  un administrador aprobo tu solicitud. El espacio queda reservado a tu nombre para el periodo
+  indicado abajo.
+{% endblock %}
+
+{% block extra %}
+  <p style="margin:20px 0 0;font-size:13px;line-height:1.6;color:rgba(25,24,23,0.65);">
+    Presentate unos minutos antes en {{ facility_location }}. Si no puedes asistir, cancela desde
+    tu panel para liberar la franja.
+  </p>
+{% endblock %}

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" role="img" aria-label="Vista superior esquematica de una piscina con carriles">
+  <rect width="800" height="500" fill="#E8D8BE"/>
+  <g opacity="0.5" stroke="#49352C" stroke-width="1">
+    <path d="M0 50h800M0 100h800M0 150h800M0 200h800M0 250h800M0 300h800M0 350h800M0 400h800M0 450h800"/>
+    <path d="M50 0v500M100 0v500M150 0v500M200 0v500M250 0v500M300 0v500M350 0v500M400 0v500M450 0v500M500 0v500M550 0v500M600 0v500M650 0v500M700 0v500M750 0v500"/>
+  </g>
+  <rect x="80" y="90" width="640" height="320" fill="#65705A"/>
+  <rect x="80" y="90" width="640" height="320" fill="#191817" opacity="0.18"/>
+  <g stroke="#F7F3EA" stroke-width="3" opacity="0.85">
+    <path d="M80 130h640M80 170h640M80 210h640M80 250h640M80 290h640M80 330h640M80 370h640"/>
+  </g>
+  <g stroke="#C65F45" stroke-width="5">
+    <path d="M80 90v320M720 90v320"/>
+  </g>
+  <rect x="80" y="90" width="640" height="320" fill="none" stroke="#191817" stroke-width="4"/>
+  <g font-family="'IBM Plex Mono', monospace" font-size="16" letter-spacing="3" fill="#49352C">
+    <text x="80" y="66">DVL / POOL</text>
+    <text x="720" y="66" text-anchor="end">8 CARRILES</text>
+    <text x="80" y="452">50 M · PROFUNDIDAD 2.0 M</text>
+  </g>
+  <rect x="0" y="0" width="800" height="500" fill="none" stroke="#191817" stroke-width="6"/>
+</svg>

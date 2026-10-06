@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" role="img" aria-label="Planta esquematica de la terraza multiuso">
+  <rect width="800" height="500" fill="#F7F3EA"/>
+  <g opacity="0.35" stroke="#65705A" stroke-width="1">
+    <path d="M0 40h800M0 80h800M0 120h800M0 160h800M0 200h800M0 240h800M0 280h800M0 320h800M0 360h800M0 400h800M0 440h800M0 480h800"/>
+    <path d="M40 0v500M80 0v500M120 0v500M160 0v500M200 0v500M240 0v500M280 0v500M320 0v500M360 0v500M400 0v500M440 0v500M480 0v500M520 0v500M560 0v500M600 0v500M640 0v500M680 0v500M720 0v500M760 0v500"/>
+  </g>
+  <rect x="80" y="100" width="640" height="300" fill="#E8D8BE" stroke="#191817" stroke-width="3"/>
+  <g stroke="#49352C" stroke-width="2" opacity="0.55">
+    <path d="M80 130h640M80 160h640M80 190h640M80 220h640M80 250h640M80 280h640M80 310h640M80 340h640M80 370h640"/>
+  </g>
+  <g fill="none" stroke="#C65F45" stroke-width="3">
+    <rect x="120" y="140" width="180" height="120"/>
+    <rect x="500" y="240" width="180" height="120"/>
+  </g>
+  <g fill="#65705A">
+    <circle cx="400" cy="250" r="10"/><circle cx="360" cy="290" r="7"/><circle cx="440" cy="210" r="7"/>
+  </g>
+  <g font-family="'IBM Plex Mono', monospace" font-size="16" letter-spacing="3" fill="#191817">
+    <text x="80" y="76">DVL / MULTIUSE</text>
+    <text x="720" y="76" text-anchor="end">CAP. 120</text>
+    <text x="80" y="440">260 M2 · AL AIRE LIBRE · 12 TOMAS</text>
+  </g>
+  <rect x="0" y="0" width="800" height="500" fill="none" stroke="#191817" stroke-width="6"/>
+</svg>
