@@ -8,12 +8,13 @@ import { ErrorState, LoadingBlock } from "@/components/atoms/states";
 import { TechnicalLabel } from "@/components/atoms/technical-label";
 import { AdminLayout } from "@/components/templates/admin-layout";
 import {
+  useAdminFacility,
   useAdminFacilities,
   useCreateRate,
+  usePublishRate,
   useSaveFacility,
   useSaveSchedules,
 } from "@/features/admin/hooks";
-import { useFacility } from "@/features/facilities/hooks";
 import { KIND_LABEL, SPORT_LABEL, ZONE_LABEL, weekdayLabel } from "@/lib/format";
 import type { Facility, FacilityKind, SportType, Zone } from "@/lib/types";
 
@@ -23,7 +24,7 @@ export default function AdminFacilitiesPage() {
   const [creating, setCreating] = useState(false);
 
   return (
-    <AdminLayout>
+    <AdminLayout access="catalog">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <TechnicalLabel>CATALOG_ADMIN_01</TechnicalLabel>
@@ -86,12 +87,16 @@ export default function AdminFacilitiesPage() {
                   <td className="px-3 py-2.5">
                     <span
                       className={
-                        facility.is_active
+                        facility.is_active && facility.is_bookable
                           ? "border border-olive px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-olive"
                           : "border border-charcoal/30 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-charcoal/50"
                       }
                     >
-                      {facility.is_active ? "Activa" : "Inactiva"}
+                      {!facility.is_active
+                        ? "Inactiva"
+                        : facility.is_bookable
+                          ? "Activa"
+                          : "Fuera de servicio"}
                     </span>
                   </td>
                 </tr>
@@ -315,7 +320,7 @@ function FacilityForm({ facility, onDone }: { facility?: Facility; onDone: () =>
             onChange={(event) => update("is_bookable", event.target.checked)}
             className="h-4 w-4 accent-terracotta"
           />
-          Reservable
+          Disponible para reservas
         </label>
 
         <label className="flex items-center gap-2 text-sm">
@@ -327,6 +332,12 @@ function FacilityForm({ facility, onDone }: { facility?: Facility; onDone: () =>
           />
           Activa en el catalogo
         </label>
+        {form.is_active && !form.is_bookable ? (
+          <p className="text-xs text-charcoal/60 sm:col-span-2">
+            La instalacion seguira visible, pero aparecera fuera de servicio y no aceptara
+            reservaciones.
+          </p>
+        ) : null}
       </div>
 
       <div className="mt-5 flex gap-2">
@@ -344,7 +355,7 @@ function FacilityForm({ facility, onDone }: { facility?: Facility; onDone: () =>
 type ScheduleDraft = { weekday: number; enabled: boolean; opens_at: string; closes_at: string };
 
 function ScheduleEditor({ facility }: { facility: Facility }) {
-  const detail = useFacility(facility.slug);
+  const detail = useAdminFacility(facility.id);
   const save = useSaveSchedules();
   const [draft, setDraft] = useState<ScheduleDraft[] | null>(null);
 
@@ -437,13 +448,25 @@ function ScheduleEditor({ facility }: { facility: Facility }) {
 }
 
 function RateForm({ facility }: { facility: Facility }) {
-  const detail = useFacility(facility.slug);
+  const detail = useAdminFacility(facility.id);
   const create = useCreateRate();
+  const publish = usePublishRate();
+  const today = localDateInput();
+  const currentRate = detail.data?.rates.find(
+    (rate) =>
+      rate.is_active &&
+      rate.valid_from <= today &&
+      (!rate.valid_until || rate.valid_until >= today),
+  );
+  const [update, setUpdate] = useState({
+    amount: "",
+    effective_from: today,
+  });
   const [form, setForm] = useState({
     name: "",
     amount: "",
     minimum_minutes: "60",
-    valid_from: new Date().toISOString().slice(0, 10),
+    valid_from: today,
   });
 
   return (
@@ -455,15 +478,76 @@ function RateForm({ facility }: { facility: Facility }) {
           <li className="text-charcoal/55">Sin tarifas registradas.</li>
         ) : null}
         {detail.data?.rates.map((rate) => (
-          <li key={rate.id} className="flex justify-between gap-3">
-            <span className="truncate">{rate.name}</span>
-            <span>
+          <li key={rate.id} className="flex flex-wrap justify-between gap-2">
+            <span className="truncate">
+              {rate.name}
+              {rate.id === currentRate?.id ? " · vigente" : ""}
+            </span>
+            <span className="text-right">
               {rate.amount} {rate.currency} / {rate.minimum_minutes}m
-              {rate.is_active ? "" : " (inactiva)"}
+              <span className="block text-charcoal/50">
+                {rate.valid_from} – {rate.valid_until ?? "sin fin"}
+                {rate.is_active ? "" : " · inactiva"}
+              </span>
             </span>
           </li>
         ))}
       </ul>
+
+      {currentRate ? (
+        <form
+          className="mt-4 grid gap-3 border-t border-charcoal/10 pt-4 sm:grid-cols-2"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            await publish.mutateAsync({
+              id: facility.id,
+              amount: update.amount,
+              effectiveFrom: update.effective_from,
+            });
+            setUpdate((current) => ({ ...current, amount: "" }));
+          }}
+        >
+          <div className="sm:col-span-2">
+            <TechnicalLabel>ACTUALIZAR TARIFA VIGENTE</TechnicalLabel>
+            <p className="mt-1 text-xs text-charcoal/60">
+              La tarifa anterior se conserva en el historial.
+            </p>
+          </div>
+          <Field label="Nuevo importe" htmlFor="rate-update-amount">
+            <Input
+              id="rate-update-amount"
+              type="number"
+              step="0.01"
+              min={0}
+              required
+              value={update.amount}
+              onChange={(event) =>
+                setUpdate((current) => ({ ...current, amount: event.target.value }))
+              }
+            />
+          </Field>
+          <Field label="Vigente desde" htmlFor="rate-update-from">
+            <Input
+              id="rate-update-from"
+              type="date"
+              min={today}
+              required
+              value={update.effective_from}
+              onChange={(event) =>
+                setUpdate((current) => ({
+                  ...current,
+                  effective_from: event.target.value,
+                }))
+              }
+            />
+          </Field>
+          <div className="sm:col-span-2">
+            <Button type="submit" size="sm" disabled={publish.isPending}>
+              {publish.isPending ? "Publicando…" : "Actualizar tarifa"}
+            </Button>
+          </div>
+        </form>
+      ) : null}
 
       <form
         className="mt-4 grid gap-3 border-t border-charcoal/10 pt-4 sm:grid-cols-2"
@@ -531,4 +615,12 @@ function RateForm({ facility }: { facility: Facility }) {
       </form>
     </section>
   );
+}
+
+function localDateInput(): string {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }

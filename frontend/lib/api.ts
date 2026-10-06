@@ -188,6 +188,8 @@ export const adminApi = {
     ),
   facilities: (page = 1, limit = 100) =>
     request<Page<Facility>>(`/admin/facilities${query({ page, limit })}`),
+  facility: (id: string) =>
+    request<FacilityDetail>(`/admin/facilities/${id}`),
   createFacility: (body: Record<string, unknown>) =>
     request<FacilityDetail>("/admin/facilities", { method: "POST", body }),
   updateFacility: (id: string, body: Record<string, unknown>) =>
@@ -199,4 +201,6 @@ export const adminApi = {
     }),
   createRate: (id: string, body: Record<string, unknown>) =>
     request<Rate>(`/admin/facilities/${id}/rates`, { method: "POST", body }),
+  publishRate: (id: string, body: { amount: string; effective_from: string }) =>
+    request<Rate>(`/admin/facilities/${id}/rates/publish`, { method: "POST", body }),
 };

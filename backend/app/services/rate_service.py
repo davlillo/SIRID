@@ -1,7 +1,7 @@
 """Tarifas vigentes y cotizacion (RN-04)."""
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
 
@@ -82,6 +82,43 @@ class RateService:
                 valid_from=payload["valid_from"],
                 valid_until=valid_until,
                 is_active=payload.get("is_active", True),
+            )
+        )
+        await self.session.commit()
+        await self.session.refresh(rate)
+        return rate
+
+    async def publish_update(
+        self, facility_id: UUID, *, amount: Decimal, effective_from: date
+    ) -> FacilityRateModel:
+        """Publica una nueva version y conserva la tarifa anterior como historial."""
+        today = datetime.now(settings.timezone).date()
+        if effective_from < today:
+            raise InvalidRate("`effective_from` cannot be in the past.")
+        if amount < 0:
+            raise InvalidRate("`amount` cannot be negative.")
+
+        current = await self.rates.active_on(facility_id, effective_from)
+        if current is None:
+            raise RateNotAvailable("The facility has no active rate to update on that date.")
+
+        previous_valid_until = current.valid_until
+        if current.valid_from == effective_from:
+            # No existe un intervalo valido para conservar dentro del mismo dia.
+            current.is_active = False
+        else:
+            current.valid_until = effective_from - timedelta(days=1)
+
+        rate = self.rates.add(
+            FacilityRateModel(
+                facility_id=facility_id,
+                name=current.name,
+                amount=amount,
+                currency=current.currency,
+                minimum_minutes=current.minimum_minutes,
+                valid_from=effective_from,
+                valid_until=previous_valid_until,
+                is_active=True,
             )
         )
         await self.session.commit()

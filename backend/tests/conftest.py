@@ -131,6 +131,13 @@ async def admin(db_session) -> UserModel:
     return await _create_user(db_session, "admin@davlillos.test", UserRole.ADMIN)
 
 
+@pytest_asyncio.fixture
+async def encargado(db_session) -> UserModel:
+    return await _create_user(
+        db_session, "encargado@davlillos.test", UserRole.ENCARGADO
+    )
+
+
 async def _create_user(session, email: str, role: UserRole) -> UserModel:
     user = UserModel(
         id=uuid.uuid4(),

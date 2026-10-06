@@ -25,6 +25,7 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       JWT_SECRET: ${JWT_SECRET:-change-me-with-a-long-random-value}
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      ENCARGADO_EMAILS: ${ENCARGADO_EMAILS:-}
       SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USERNAME: ${SMTP_USERNAME:-}

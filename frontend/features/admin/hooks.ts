@@ -20,6 +20,14 @@ export function useAdminFacilities() {
   return useQuery({ queryKey: ["admin", "facilities"], queryFn: () => adminApi.facilities() });
 }
 
+export function useAdminFacility(id: string) {
+  return useQuery({
+    queryKey: ["admin", "facilities", id],
+    queryFn: () => adminApi.facility(id),
+    enabled: Boolean(id),
+  });
+}
+
 export function useReservationNotifications(id: string | null) {
   return useQuery({
     queryKey: ["admin", "notifications", id],
@@ -100,6 +108,7 @@ export function useSaveSchedules() {
     mutationFn: ({ id, schedules }: { id: string; schedules: unknown[] }) =>
       adminApi.replaceSchedules(id, schedules),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "facilities"] });
       queryClient.invalidateQueries({ queryKey: ["facilities"] });
       queryClient.invalidateQueries({ queryKey: ["availability"] });
       notify("Horario semanal actualizado.", "success");
@@ -118,11 +127,45 @@ export function useCreateRate() {
     mutationFn: ({ id, body }: { id: string; body: Record<string, unknown> }) =>
       adminApi.createRate(id, body),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "facilities"] });
       queryClient.invalidateQueries({ queryKey: ["facilities"] });
       notify("Tarifa registrada.", "success");
     },
     onError: (error) => {
       notify(error instanceof ApiError ? error.detail : "Tarifa invalida.", "error");
+    },
+  });
+}
+
+export function usePublishRate() {
+  const queryClient = useQueryClient();
+  const { notify } = useToast();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      amount,
+      effectiveFrom,
+    }: {
+      id: string;
+      amount: string;
+      effectiveFrom: string;
+    }) =>
+      adminApi.publishRate(id, {
+        amount,
+        effective_from: effectiveFrom,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "facilities"] });
+      queryClient.invalidateQueries({ queryKey: ["facilities"] });
+      queryClient.invalidateQueries({ queryKey: ["availability"] });
+      notify("Nueva tarifa vigente publicada.", "success");
+    },
+    onError: (error) => {
+      notify(
+        error instanceof ApiError ? error.detail : "No se pudo actualizar la tarifa.",
+        "error",
+      );
     },
   });
 }

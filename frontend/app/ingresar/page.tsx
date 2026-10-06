@@ -10,11 +10,14 @@ import { useAuth } from "@/features/auth/auth-context";
 
 export default function SignInPage() {
   const router = useRouter();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, canManageCatalog } = useAuth();
 
   useEffect(() => {
-    if (user) router.replace(isAdmin ? "/admin" : "/mis-reservas");
-  }, [user, isAdmin, router]);
+    if (!user) return;
+    if (isAdmin) router.replace("/admin");
+    else if (canManageCatalog) router.replace("/admin/instalaciones");
+    else router.replace("/mis-reservas");
+  }, [user, isAdmin, canManageCatalog, router]);
 
   return (
     <PublicLayout>
@@ -34,7 +37,7 @@ export default function SignInPage() {
             Al continuar aceptas que registremos tu nombre y correo para gestionar tus reservas.
           </p>
           <div className="mt-6">
-            <GoogleAuthButton onDone={() => router.replace("/mis-reservas")} />
+            <GoogleAuthButton />
           </div>
         </div>
       </section>

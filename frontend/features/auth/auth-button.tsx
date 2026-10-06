@@ -59,7 +59,7 @@ export function GoogleAuthButton({ onDone }: { onDone?: () => void }) {
 
 /** Estado de sesion del header: acceso, panel y cierre de sesion. */
 export function SessionMenu() {
-  const { user, isLoading, isAdmin, logout } = useAuth();
+  const { user, isLoading, isAdmin, canManageCatalog, logout } = useAuth();
 
   if (isLoading) return <Spinner />;
 
@@ -76,8 +76,11 @@ export function SessionMenu() {
 
   return (
     <div className="flex items-center gap-3">
-      {isAdmin ? (
-        <Link href="/admin" className="text-sm font-semibold hover:text-terracotta">
+      {canManageCatalog ? (
+        <Link
+          href={isAdmin ? "/admin" : "/admin/instalaciones"}
+          className="text-sm font-semibold hover:text-terracotta"
+        >
           Panel
         </Link>
       ) : null}

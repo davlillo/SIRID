@@ -5,6 +5,7 @@ from enum import StrEnum
 
 class UserRole(StrEnum):
     CLIENT = "CLIENT"
+    ENCARGADO = "ENCARGADO"
     ADMIN = "ADMIN"
 
 

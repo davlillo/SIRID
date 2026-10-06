@@ -28,7 +28,8 @@ levanta la API. Con eso quedan disponibles:
 | `http://localhost:8000/v1/health` | Salud de la API y de la base |
 
 Para iniciar sesion hay que configurar `GOOGLE_CLIENT_ID` y listar los correos
-administradores en `ADMIN_EMAILS`. Ver `spect/12-manual-implementacion.md`.
+administradores en `ADMIN_EMAILS`. Los encargados de instalaciones y tarifas se
+configuran en `ENCARGADO_EMAILS`. Ver `spect/12-manual-implementacion.md`.
 
 ## Estado
 

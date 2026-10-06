@@ -45,9 +45,18 @@ async def require_admin(user: Annotated[UserModel, Depends(current_user)]) -> Us
     return user
 
 
+async def require_catalog_staff(
+    user: Annotated[UserModel, Depends(current_user)],
+) -> UserModel:
+    if user.role not in {UserRole.ADMIN, UserRole.ENCARGADO}:
+        raise AdminRequired("This operation requires catalog management permissions.")
+    return user
+
+
 CurrentUser = Annotated[UserModel, Depends(current_user)]
 OptionalUser = Annotated[UserModel | None, Depends(optional_user)]
 AdminUser = Annotated[UserModel, Depends(require_admin)]
+CatalogStaffUser = Annotated[UserModel, Depends(require_catalog_staff)]
 
 
 class RateLimiter:

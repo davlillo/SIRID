@@ -1,6 +1,6 @@
 /** Espejo del contrato de la API (spect/04-contrato-api.md). */
 
-export type UserRole = "CLIENT" | "ADMIN";
+export type UserRole = "CLIENT" | "ENCARGADO" | "ADMIN";
 
 export type Zone = "ESTADIO" | "FUTBOL" | "ACUATICA" | "CANCHAS" | "EVENTOS" | "SERVICIOS";
 

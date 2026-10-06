@@ -30,6 +30,8 @@ class Settings(BaseSettings):
 
     # Correos que reciben rol ADMIN la primera vez que inician sesion.
     admin_emails: str = ""
+    # Correos que gestionan instalaciones, horarios y tarifas.
+    encargado_emails: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
 
@@ -45,6 +47,14 @@ class Settings(BaseSettings):
     def admin_email_set(self) -> frozenset[str]:
         return frozenset(
             email.strip().lower() for email in self.admin_emails.split(",") if email.strip()
+        )
+
+    @cached_property
+    def encargado_email_set(self) -> frozenset[str]:
+        return frozenset(
+            email.strip().lower()
+            for email in self.encargado_emails.split(",")
+            if email.strip()
         )
 
     @property

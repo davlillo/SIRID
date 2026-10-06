@@ -38,10 +38,16 @@ class AuthService:
             user.name = identity.name
             user.avatar_url = identity.picture
 
-        # La promocion a ADMIN proviene de la configuracion del servidor, nunca
-        # de datos enviados por el navegador.
-        if user.role != UserRole.ADMIN and identity.email in settings.admin_email_set:
+        # Los roles internos provienen de la configuracion del servidor, nunca
+        # de datos enviados por el navegador. ADMIN tiene prioridad si un
+        # correo aparece en ambas listas.
+        if identity.email in settings.admin_email_set:
             user.role = UserRole.ADMIN
+        elif (
+            user.role != UserRole.ADMIN
+            and identity.email in settings.encargado_email_set
+        ):
+            user.role = UserRole.ENCARGADO
 
         await self.session.flush()
         await self.session.commit()
@@ -59,9 +65,12 @@ class AuthService:
             existing.avatar_url = identity.picture
             return existing
 
-        role = (
-            UserRole.ADMIN if identity.email in settings.admin_email_set else UserRole.CLIENT
-        )
+        if identity.email in settings.admin_email_set:
+            role = UserRole.ADMIN
+        elif identity.email in settings.encargado_email_set:
+            role = UserRole.ENCARGADO
+        else:
+            role = UserRole.CLIENT
         return self.users.add(
             UserModel(
                 google_subject=identity.subject,
