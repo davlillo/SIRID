@@ -3,18 +3,72 @@
 Corren contra PostgreSQL real porque la regla critica del sistema (la exclusion
 constraint anti-solapamiento) no existe fuera de PostgreSQL.
 """
+# ruff: noqa: E402
 
+import asyncio
 import os
+import subprocess
+import sys
 import uuid
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
+from sqlalchemy.engine import make_url
+from sqlalchemy.ext.asyncio import create_async_engine
 
-from app.api.auth import get_google_verifier
+
+def _isolate_test_database() -> None:
+    """Redirige las pruebas a `<base>_test` para no vaciar los datos de desarrollo.
+
+    Las pruebas ejecutan TRUNCATE; si apuntaran a la base real borrarian las
+    instalaciones, tarifas y clientes con los que se trabaja en la aplicacion.
+    Debe ejecutarse antes de importar `app`, porque el engine se crea al importar.
+    """
+    raw_url = os.getenv("DATABASE_URL")
+    if not raw_url:
+        return
+
+    url = make_url(raw_url)
+    if not url.database or url.database.endswith("_test"):
+        return
+
+    test_name = f"{url.database}_test"
+    os.environ["DATABASE_URL"] = url.set(database=test_name).render_as_string(
+        hide_password=False
+    )
+
+    async def ensure_database() -> None:
+        admin = create_async_engine(
+            url.set(database="postgres"), isolation_level="AUTOCOMMIT"
+        )
+        try:
+            async with admin.connect() as connection:
+                exists = await connection.scalar(
+                    text("SELECT 1 FROM pg_database WHERE datname = :name"),
+                    {"name": test_name},
+                )
+                if not exists:
+                    await connection.execute(text(f'CREATE DATABASE "{test_name}"'))
+        finally:
+            await admin.dispose()
+
+    asyncio.run(ensure_database())
+    subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        cwd=Path(__file__).resolve().parents[1],
+        check=True,
+        capture_output=True,
+    )
+
+
+_isolate_test_database()
+
+from app.api.auth import get_google_verifier  # noqa: E402
 from app.api.deps import RATE_LIMITERS
 from app.core.config import settings
 from app.core.security import issue_session_token
@@ -85,6 +139,10 @@ async def reset_engine_pool():
 
 @pytest_asyncio.fixture
 async def db_session():
+    database = make_url(settings.database_url).database or ""
+    assert database.endswith("_test"), (
+        f"Las pruebas vacian tablas y no pueden correr contra '{database}'."
+    )
     async with SessionLocal() as session:
         # Si otra transaccion dejo la tabla bloqueada preferimos fallar rapido
         # antes que colgar la suite entera esperando el ACCESS EXCLUSIVE.
@@ -129,6 +187,13 @@ async def other_customer(db_session) -> UserModel:
 @pytest_asyncio.fixture
 async def admin(db_session) -> UserModel:
     return await _create_user(db_session, "admin@davlillos.test", UserRole.ADMIN)
+
+
+@pytest_asyncio.fixture
+async def encargado(db_session) -> UserModel:
+    return await _create_user(
+        db_session, "encargado@davlillos.test", UserRole.ENCARGADO
+    )
 
 
 async def _create_user(session, email: str, role: UserRole) -> UserModel:

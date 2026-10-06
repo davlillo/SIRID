@@ -1,6 +1,6 @@
 /** Espejo del contrato de la API (spect/04-contrato-api.md). */
 
-export type UserRole = "CLIENT" | "ADMIN";
+export type UserRole = "CLIENT" | "ENCARGADO" | "ADMIN";
 
 export type Zone = "ESTADIO" | "FUTBOL" | "ACUATICA" | "CANCHAS" | "EVENTOS" | "SERVICIOS";
 
@@ -31,6 +31,16 @@ export type User = {
   name: string;
   avatar_url: string | null;
   role: UserRole;
+};
+
+export type Client = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  dui: string;
+  phone: string;
+  email: string;
+  is_active: boolean;
 };
 
 export type FacilityImage = {

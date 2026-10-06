@@ -1,5 +1,6 @@
 """Sesion, roles y proteccion de recursos ajenos."""
 
+from app.core.config import settings
 from tests.conftest import authenticate, requires_database
 
 pytestmark = requires_database
@@ -28,8 +29,11 @@ async def test_invalid_google_token_is_rejected(client):
     assert response.json()["title"] == "Invalid Google credential"
 
 
-async def test_configured_email_becomes_admin(client, google_verifier):
+async def test_configured_email_becomes_admin(client, google_verifier, monkeypatch):
     """La promocion a ADMIN viene de la configuracion, nunca del navegador."""
+    monkeypatch.setitem(
+        settings.__dict__, "admin_email_set", frozenset({"admin@davlillos.test"})
+    )
     google_verifier.identity = google_verifier.identity.__class__(
         subject="google-subject-admin",
         email="admin@davlillos.test",
@@ -40,6 +44,45 @@ async def test_configured_email_becomes_admin(client, google_verifier):
     response = await client.post("/v1/auth/google", json={"credential": "a-valid-google-token"})
 
     assert response.json()["role"] == "ADMIN"
+
+
+async def test_configured_email_becomes_encargado(client, google_verifier, monkeypatch):
+    monkeypatch.setitem(
+        settings.__dict__,
+        "encargado_email_set",
+        frozenset({"encargado@davlillos.test"}),
+    )
+    google_verifier.identity = google_verifier.identity.__class__(
+        subject="google-subject-encargado",
+        email="encargado@davlillos.test",
+        name="Encargado Demo",
+        picture=None,
+    )
+
+    response = await client.post("/v1/auth/google", json={"credential": "a-valid-google-token"})
+
+    assert response.status_code == 200
+    assert response.json()["role"] == "ENCARGADO"
+
+
+async def test_development_login_creates_an_encargado_session(client, monkeypatch):
+    monkeypatch.setattr(settings, "dev_auth_enabled", True)
+    monkeypatch.setattr(settings, "environment", "development")
+
+    response = await client.post("/v1/auth/development", json={"role": "ENCARGADO"})
+
+    assert response.status_code == 200
+    assert response.json()["role"] == "ENCARGADO"
+    assert "HttpOnly" in response.headers["set-cookie"]
+
+
+async def test_development_login_is_rejected_in_production(client, monkeypatch):
+    monkeypatch.setattr(settings, "dev_auth_enabled", True)
+    monkeypatch.setattr(settings, "environment", "production")
+
+    response = await client.post("/v1/auth/development", json={"role": "ADMIN"})
+
+    assert response.status_code == 401
 
 
 async def test_me_requires_a_session(client):

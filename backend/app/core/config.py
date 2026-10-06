@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:3000"
 
     google_client_id: str = ""
+    dev_auth_enabled: bool = False
     jwt_secret: str
     jwt_algorithm: str = "HS256"
     session_cookie_name: str = "dvl_session"
@@ -30,6 +31,8 @@ class Settings(BaseSettings):
 
     # Correos que reciben rol ADMIN la primera vez que inician sesion.
     admin_emails: str = ""
+    # Correos que registran clientes y gestionan tarifas.
+    encargado_emails: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
 
@@ -45,6 +48,14 @@ class Settings(BaseSettings):
     def admin_email_set(self) -> frozenset[str]:
         return frozenset(
             email.strip().lower() for email in self.admin_emails.split(",") if email.strip()
+        )
+
+    @cached_property
+    def encargado_email_set(self) -> frozenset[str]:
+        return frozenset(
+            email.strip().lower()
+            for email in self.encargado_emails.split(",")
+            if email.strip()
         )
 
     @property

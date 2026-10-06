@@ -50,8 +50,13 @@ class UserModel(Base):
     google_subject: Mapped[str] = mapped_column(String(255), unique=True)
     email: Mapped[str] = mapped_column(String(320), unique=True)
     name: Mapped[str] = mapped_column(String(160))
+    first_name: Mapped[str | None] = mapped_column(String(80))
+    last_name: Mapped[str | None] = mapped_column(String(80))
+    dui: Mapped[str | None] = mapped_column(String(10), unique=True)
+    phone: Mapped[str | None] = mapped_column(String(24))
     avatar_url: Mapped[str | None] = mapped_column(String(2048))
     role: Mapped[UserRole] = mapped_column(user_role_enum, server_default=UserRole.CLIENT.value)
+    is_active: Mapped[bool] = mapped_column(Boolean, server_default="true", default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

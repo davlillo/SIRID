@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
 
-from app.api.deps import AdminUser, SessionDep, require_admin
+from app.api.deps import AdminUser, CatalogStaffUser, SessionDep, require_admin
 from app.api.notifications import schedule_notification
 from app.core.config import settings
 from app.domain.enums import FacilityKind, ReservationStatus, SportType, Zone
@@ -16,6 +16,7 @@ from app.schemas.admin import (
     NotificationLogResponse,
     ReservationEventResponse,
 )
+from app.schemas.client import ClientCreate, ClientResponse, ClientUpdate
 from app.schemas.common import Page
 from app.schemas.facility import (
     FacilityCreate,
@@ -23,17 +24,57 @@ from app.schemas.facility import (
     FacilityResponse,
     FacilityUpdate,
     RateCreate,
+    RatePublishRequest,
     RateResponse,
     ScheduleReplaceRequest,
     ScheduleResponse,
 )
 from app.schemas.reservation import AdminReservationResponse, ReservationNoteRequest
 from app.services.facility_service import FacilityService
+from app.services.client_service import ClientService
 from app.services.rate_service import RateService
 from app.services.reservation_service import ReservationService
 from app.services.schedule_service import ScheduleService
 
-router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
+router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+# --------------------------------------------------------------------------- #
+# Clientes
+# --------------------------------------------------------------------------- #
+
+
+@router.get("/clients", response_model=list[ClientResponse])
+async def list_clients(
+    session: SessionDep, staff: CatalogStaffUser
+) -> list[ClientResponse]:
+    clients = await ClientService(session).list_registered()
+    return [ClientResponse.model_validate(client) for client in clients]
+
+
+@router.post("/clients", response_model=ClientResponse, status_code=201)
+async def create_client(
+    payload: ClientCreate, session: SessionDep, staff: CatalogStaffUser
+) -> ClientResponse:
+    client = await ClientService(session).create(payload.model_dump())
+    return ClientResponse.model_validate(client)
+
+
+@router.patch(
+    "/clients/{client_id}",
+    response_model=ClientResponse,
+    summary="Actualiza, da de baja o reactiva a un cliente",
+)
+async def update_client(
+    client_id: UUID,
+    payload: ClientUpdate,
+    session: SessionDep,
+    staff: CatalogStaffUser,
+) -> ClientResponse:
+    client = await ClientService(session).update(
+        client_id, payload.model_dump(exclude_unset=True)
+    )
+    return ClientResponse.model_validate(client)
 
 
 # --------------------------------------------------------------------------- #
@@ -41,7 +82,11 @@ router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(requir
 # --------------------------------------------------------------------------- #
 
 
-@router.get("/reservations", response_model=Page[AdminReservationResponse])
+@router.get(
+    "/reservations",
+    response_model=Page[AdminReservationResponse],
+    dependencies=[Depends(require_admin)],
+)
 async def list_reservations(
     session: SessionDep,
     status: ReservationStatus | None = None,
@@ -107,7 +152,9 @@ async def complete_reservation(
 
 
 @router.get(
-    "/reservations/{reservation_id}/events", response_model=list[ReservationEventResponse]
+    "/reservations/{reservation_id}/events",
+    response_model=list[ReservationEventResponse],
+    dependencies=[Depends(require_admin)],
 )
 async def list_reservation_events(
     reservation_id: UUID, session: SessionDep
@@ -120,6 +167,7 @@ async def list_reservation_events(
     "/reservations/{reservation_id}/notifications",
     response_model=list[NotificationLogResponse],
     summary="Historial de correos, incluyendo fallos SMTP pendientes de reintento",
+    dependencies=[Depends(require_admin)],
 )
 async def list_reservation_notifications(
     reservation_id: UUID, session: SessionDep
@@ -152,7 +200,11 @@ async def retry_notification(
 # --------------------------------------------------------------------------- #
 
 
-@router.get("/stats", response_model=AdminStatsResponse)
+@router.get(
+    "/stats",
+    response_model=AdminStatsResponse,
+    dependencies=[Depends(require_admin)],
+)
 async def read_stats(session: SessionDep) -> AdminStatsResponse:
     tz = settings.timezone
     repository = ReservationRepository(session)
@@ -185,6 +237,7 @@ async def read_stats(session: SessionDep) -> AdminStatsResponse:
 @router.get("/facilities", response_model=Page[FacilityResponse])
 async def list_all_facilities(
     session: SessionDep,
+    staff: CatalogStaffUser,
     zone: Zone | None = None,
     sport_type: SportType | None = None,
     facility_kind: FacilityKind | None = None,
@@ -207,9 +260,17 @@ async def list_all_facilities(
     )
 
 
+@router.get("/facilities/{facility_id}", response_model=FacilityDetailResponse)
+async def read_admin_facility(
+    facility_id: UUID, session: SessionDep, staff: CatalogStaffUser
+) -> FacilityDetailResponse:
+    facility = await FacilityService(session).get(facility_id, include_inactive=True)
+    return FacilityDetailResponse.model_validate(facility)
+
+
 @router.post("/facilities", response_model=FacilityDetailResponse, status_code=201)
 async def create_facility(
-    payload: FacilityCreate, session: SessionDep
+    payload: FacilityCreate, session: SessionDep, staff: CatalogStaffUser
 ) -> FacilityDetailResponse:
     facility = await FacilityService(session).create(payload.model_dump())
     return FacilityDetailResponse.model_validate(facility)
@@ -217,7 +278,10 @@ async def create_facility(
 
 @router.patch("/facilities/{facility_id}", response_model=FacilityDetailResponse)
 async def update_facility(
-    facility_id: UUID, payload: FacilityUpdate, session: SessionDep
+    facility_id: UUID,
+    payload: FacilityUpdate,
+    session: SessionDep,
+    staff: CatalogStaffUser,
 ) -> FacilityDetailResponse:
     facility = await FacilityService(session).update(
         facility_id, payload.model_dump(exclude_unset=True)
@@ -231,7 +295,10 @@ async def update_facility(
     summary="Reemplaza el horario semanal completo",
 )
 async def replace_schedules(
-    facility_id: UUID, payload: ScheduleReplaceRequest, session: SessionDep
+    facility_id: UUID,
+    payload: ScheduleReplaceRequest,
+    session: SessionDep,
+    staff: CatalogStaffUser,
 ) -> list[ScheduleResponse]:
     await FacilityService(session).get(facility_id, include_inactive=True)
     schedules = await ScheduleService(session).replace(
@@ -242,8 +309,33 @@ async def replace_schedules(
 
 @router.post("/facilities/{facility_id}/rates", response_model=RateResponse, status_code=201)
 async def create_rate(
-    facility_id: UUID, payload: RateCreate, session: SessionDep
+    facility_id: UUID,
+    payload: RateCreate,
+    session: SessionDep,
+    staff: CatalogStaffUser,
 ) -> RateResponse:
     await FacilityService(session).get(facility_id, include_inactive=True)
     rate = await RateService(session).create(facility_id, payload.model_dump())
+    return RateResponse.model_validate(rate)
+
+
+@router.post(
+    "/facilities/{facility_id}/rates/publish",
+    response_model=RateResponse,
+    status_code=201,
+    summary="Publica una nueva version de la tarifa vigente",
+)
+async def publish_rate(
+    facility_id: UUID,
+    payload: RatePublishRequest,
+    session: SessionDep,
+    staff: CatalogStaffUser,
+) -> RateResponse:
+    await FacilityService(session).get(facility_id, include_inactive=True)
+    rate = await RateService(session).publish_update(
+        facility_id,
+        amount=payload.amount,
+        effective_from=payload.effective_from,
+        minimum_minutes=payload.minimum_minutes,
+    )
     return RateResponse.model_validate(rate)

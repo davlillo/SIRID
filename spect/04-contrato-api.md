@@ -77,18 +77,26 @@ Ejemplo de creacion:
 }
 ```
 
-## Operaciones de admin
+## Operaciones internas
 
-| Metodo | Ruta |
-|---|---|
-| GET | `/admin/reservations` |
-| POST | `/admin/reservations/{id}/confirm` |
-| POST | `/admin/reservations/{id}/cancel` |
-| POST | `/admin/reservations/{id}/complete` |
-| POST | `/admin/facilities` |
-| PATCH | `/admin/facilities/{id}` |
-| POST | `/admin/facilities/{id}/schedules` |
-| POST | `/admin/facilities/{id}/rates` |
+| Metodo | Ruta | Roles |
+|---|---|---|
+| GET | `/admin/reservations` | ADMIN |
+| POST | `/admin/reservations/{id}/confirm` | ADMIN |
+| POST | `/admin/reservations/{id}/cancel` | ADMIN |
+| POST | `/admin/reservations/{id}/complete` | ADMIN |
+| GET | `/admin/clients` | ADMIN, ENCARGADO |
+| POST | `/admin/clients` | ADMIN, ENCARGADO |
+| GET | `/admin/facilities` | ADMIN, ENCARGADO |
+| GET | `/admin/facilities/{id}` | ADMIN, ENCARGADO |
+| POST | `/admin/facilities` | ADMIN |
+| PATCH | `/admin/facilities/{id}` | ADMIN |
+| POST | `/admin/facilities/{id}/schedules` | ADMIN |
+| POST | `/admin/facilities/{id}/rates` | ADMIN, ENCARGADO |
+| POST | `/admin/facilities/{id}/rates/publish` | ADMIN, ENCARGADO |
+
+`rates/publish` cierra o desactiva la tarifa vigente e inserta una nueva version. Las
+reservas existentes conservan el importe cotizado y las nuevas usan el monto publicado.
 
 ## Reglas de API
 

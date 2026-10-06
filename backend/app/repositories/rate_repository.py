@@ -13,7 +13,14 @@ class RateRepository:
 
     async def active_on(self, facility_id: UUID, on_date: date) -> FacilityRateModel | None:
         """Tarifa vigente en una fecha. Ante empate gana la de inicio mas reciente."""
-        return await self.session.scalar(
+        rates = await self.active_rates_on(facility_id, on_date)
+        return rates[0] if rates else None
+
+    async def active_rates_on(
+        self, facility_id: UUID, on_date: date
+    ) -> list[FacilityRateModel]:
+        """Devuelve todas las tarifas que se superponen en una fecha."""
+        rows = await self.session.scalars(
             select(FacilityRateModel)
             .where(
                 FacilityRateModel.facility_id == facility_id,
@@ -25,8 +32,8 @@ class RateRepository:
                 ),
             )
             .order_by(FacilityRateModel.valid_from.desc(), FacilityRateModel.amount.asc())
-            .limit(1)
         )
+        return list(rows.all())
 
     async def list_for_facility(self, facility_id: UUID) -> list[FacilityRateModel]:
         rows = await self.session.scalars(

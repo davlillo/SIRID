@@ -38,6 +38,15 @@ class RateCreate(BaseModel):
     is_active: bool = True
 
 
+class RatePublishRequest(BaseModel):
+    """Nueva version de la tarifa vigente sin alterar cotizaciones historicas."""
+
+    amount: Decimal = Field(ge=0, max_digits=10, decimal_places=2)
+    effective_from: date
+    # Unidad de tiempo del precio. Si se omite se conserva la de la tarifa vigente.
+    minimum_minutes: int | None = Field(default=None, ge=15, le=1440)
+
+
 class RateResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

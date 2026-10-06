@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.security import issue_session_token
 from app.domain.enums import UserRole
+from app.domain.errors import AccountDisabled, AuthenticationFailed
 from app.infrastructure.google_identity import GoogleIdentityVerifier, GoogleVerifier
 from app.infrastructure.models import UserModel
 from app.repositories.user_repository import UserRepository
@@ -38,15 +39,54 @@ class AuthService:
             user.name = identity.name
             user.avatar_url = identity.picture
 
-        # La promocion a ADMIN proviene de la configuracion del servidor, nunca
-        # de datos enviados por el navegador.
-        if user.role != UserRole.ADMIN and identity.email in settings.admin_email_set:
+        # `is False`: un usuario recien creado aun no tiene valor persistido.
+        if user.is_active is False:
+            await self.session.rollback()
+            raise AccountDisabled("Tu cuenta esta desactivada. Contacta al administrador.")
+
+        # Los roles internos provienen de la configuracion del servidor, nunca
+        # de datos enviados por el navegador. ADMIN tiene prioridad si un
+        # correo aparece en ambas listas.
+        if identity.email in settings.admin_email_set:
             user.role = UserRole.ADMIN
+        elif (
+            user.role != UserRole.ADMIN
+            and identity.email in settings.encargado_email_set
+        ):
+            user.role = UserRole.ENCARGADO
 
         await self.session.flush()
         await self.session.commit()
         await self.session.refresh(user)
 
+        token, max_age = issue_session_token(user.id, user.role)
+        return Session(user=user, token=token, max_age_seconds=max_age)
+
+    async def authenticate_development(self, role: UserRole) -> Session:
+        """Sesion local explicita; nunca disponible fuera de development."""
+        if (
+            not settings.dev_auth_enabled
+            or settings.environment.lower() != "development"
+        ):
+            raise AuthenticationFailed("Development login is disabled.")
+
+        email = f"dev-{role.value.lower()}@sirid.local"
+        user = await self.users.get_by_email(email)
+        if user is None:
+            user = self.users.add(
+                UserModel(
+                    google_subject=f"development:{role.value.lower()}",
+                    email=email,
+                    name=f"Demo {role.value.title()}",
+                    avatar_url=None,
+                    role=role,
+                )
+            )
+        else:
+            user.role = role
+
+        await self.session.commit()
+        await self.session.refresh(user)
         token, max_age = issue_session_token(user.id, user.role)
         return Session(user=user, token=token, max_age_seconds=max_age)
 
@@ -59,9 +99,12 @@ class AuthService:
             existing.avatar_url = identity.picture
             return existing
 
-        role = (
-            UserRole.ADMIN if identity.email in settings.admin_email_set else UserRole.CLIENT
-        )
+        if identity.email in settings.admin_email_set:
+            role = UserRole.ADMIN
+        elif identity.email in settings.encargado_email_set:
+            role = UserRole.ENCARGADO
+        else:
+            role = UserRole.CLIENT
         return self.users.add(
             UserModel(
                 google_subject=identity.subject,

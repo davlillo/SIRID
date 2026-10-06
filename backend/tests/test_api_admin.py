@@ -54,6 +54,33 @@ class TestPermissions:
     async def test_an_anonymous_visitor_cannot_reach_admin(self, client):
         assert (await client.get("/v1/admin/stats")).status_code == 401
 
+    async def test_an_encargado_can_manage_facilities(self, client, encargado):
+        authenticate(client, encargado)
+
+        response = await client.post(
+            "/v1/admin/facilities",
+            json={
+                "slug": "cancha-del-encargado",
+                "name": "Cancha del Encargado",
+                "description": "Instalacion creada por el encargado del catalogo.",
+                "sport_type": "FOOTBALL_5",
+                "facility_kind": "FIELD",
+                "zone": "FUTBOL",
+                "capacity": 10,
+                "location_label": "Zona Futbol",
+            },
+        )
+
+        assert response.status_code == 201
+
+    async def test_an_encargado_cannot_access_reservations_or_stats(
+        self, client, encargado
+    ):
+        authenticate(client, encargado)
+
+        assert (await client.get("/v1/admin/reservations")).status_code == 403
+        assert (await client.get("/v1/admin/stats")).status_code == 403
+
 
 class TestLifecycle:
     async def test_an_admin_confirms_a_pending_reservation(
@@ -212,6 +239,36 @@ class TestCatalog:
 
         assert all(item["id"] != str(facility.id) for item in public.json()["items"])
 
+    async def test_an_encargado_can_edit_an_inactive_facility(
+        self, client, encargado, facility
+    ):
+        authenticate(client, encargado)
+        await client.patch(
+            f"/v1/admin/facilities/{facility.id}", json={"is_active": False}
+        )
+
+        detail = await client.get(f"/v1/admin/facilities/{facility.id}")
+
+        assert detail.status_code == 200
+        assert detail.json()["is_active"] is False
+
+    async def test_a_facility_out_of_service_cannot_be_reserved(
+        self, client, customer, encargado, facility
+    ):
+        authenticate(client, encargado)
+        await client.patch(
+            f"/v1/admin/facilities/{facility.id}", json={"is_bookable": False}
+        )
+
+        authenticate(client, customer)
+        response = await client.post(
+            "/v1/reservations",
+            json={"facility_id": str(facility.id), **slot_at(18)},
+        )
+
+        assert response.status_code == 409
+        assert response.json()["title"] == "Facility is not bookable"
+
     async def test_an_admin_replaces_the_weekly_schedule(self, client, admin, facility):
         authenticate(client, admin)
 
@@ -259,6 +316,122 @@ class TestCatalog:
 
         assert response.status_code == 201
         assert response.json()["amount"] == "55.00"
+
+    async def test_an_encargado_publishes_a_new_rate_without_changing_old_quotes(
+        self, client, customer, encargado, facility
+    ):
+        authenticate(client, customer)
+        original = await client.post(
+            "/v1/reservations",
+            json={"facility_id": str(facility.id), **slot_at(18)},
+        )
+        assert original.json()["quoted_amount"] == "40.00"
+
+        authenticate(client, encargado)
+        today = datetime.now(settings.timezone).date()
+        published = await client.post(
+            f"/v1/admin/facilities/{facility.id}/rates/publish",
+            json={"amount": "65.00", "effective_from": today.isoformat()},
+        )
+
+        assert published.status_code == 201
+        assert published.json()["amount"] == "65.00"
+
+        history = await client.get(f"/v1/admin/facilities/{facility.id}")
+        rates = history.json()["rates"]
+        assert len(rates) == 2
+        assert any(rate["amount"] == "40.00" for rate in rates)
+
+        authenticate(client, customer)
+        updated = await client.post(
+            "/v1/reservations",
+            json={"facility_id": str(facility.id), **slot_at(19)},
+        )
+        original_after_update = await client.get(f"/v1/reservations/{original.json()['id']}")
+
+        assert updated.json()["quoted_amount"] == "65.00"
+        assert original_after_update.json()["quoted_amount"] == "40.00"
+
+    async def test_publishing_can_change_the_time_unit_of_the_rate(
+        self, client, encargado, facility
+    ):
+        authenticate(client, encargado)
+        today = datetime.now(settings.timezone).date()
+
+        published = await client.post(
+            f"/v1/admin/facilities/{facility.id}/rates/publish",
+            json={
+                "amount": "90.00",
+                "effective_from": today.isoformat(),
+                "minimum_minutes": 120,
+            },
+        )
+
+        assert published.status_code == 201
+        assert published.json()["minimum_minutes"] == 120
+        assert published.json()["amount"] == "90.00"
+
+    async def test_publishing_keeps_the_time_unit_when_it_is_not_sent(
+        self, client, encargado, facility
+    ):
+        authenticate(client, encargado)
+        today = datetime.now(settings.timezone).date()
+
+        published = await client.post(
+            f"/v1/admin/facilities/{facility.id}/rates/publish",
+            json={"amount": "70.00", "effective_from": today.isoformat()},
+        )
+
+        assert published.json()["minimum_minutes"] == 60
+
+    async def test_publishing_rejects_an_invalid_time_unit_in_spanish(
+        self, client, encargado, facility
+    ):
+        authenticate(client, encargado)
+        today = datetime.now(settings.timezone).date()
+
+        response = await client.post(
+            f"/v1/admin/facilities/{facility.id}/rates/publish",
+            json={
+                "amount": "70.00",
+                "effective_from": today.isoformat(),
+                "minimum_minutes": 5,
+            },
+        )
+
+        assert response.status_code == 422
+        assert response.json()["detail"] == "La duración del bloque está fuera del rango permitido."
+
+    async def test_publishing_closes_every_overlapping_rate(
+        self, client, customer, encargado, facility
+    ):
+        today = datetime.now(settings.timezone).date()
+        authenticate(client, encargado)
+        await client.post(
+            f"/v1/admin/facilities/{facility.id}/rates",
+            json={
+                "name": "Tarifa de prueba",
+                "amount": "80.00",
+                "currency": "USD",
+                "minimum_minutes": 60,
+                "valid_from": today.isoformat(),
+            },
+        )
+
+        published = await client.post(
+            f"/v1/admin/facilities/{facility.id}/rates/publish",
+            json={"amount": "65.00", "effective_from": today.isoformat()},
+        )
+        assert published.status_code == 201
+
+        authenticate(client, customer)
+        reservation = await client.post(
+            "/v1/reservations",
+            json={"facility_id": str(facility.id), **slot_at(18)},
+        )
+
+        assert reservation.status_code == 201
+        assert reservation.json()["quoted_amount"] == "65.00"
 
     async def test_stats_count_pending_reservations(
         self, client, customer, admin, facility

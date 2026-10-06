@@ -9,6 +9,7 @@ import type {
   AdminReservation,
   AdminStats,
   Availability,
+  Client,
   Facility,
   FacilityDetail,
   NotificationLog,
@@ -17,10 +18,18 @@ import type {
   Reservation,
   Schedule,
   User,
+  UserRole,
   Zone,
 } from "./types";
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/v1";
+const PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/v1";
+
+// En el navegador, localhost apunta al host del usuario. Durante SSR, Next.js
+// corre dentro de su contenedor y debe resolver la API por el nombre del servicio.
+export const API_URL =
+  typeof window === "undefined"
+    ? (process.env.INTERNAL_API_URL ?? PUBLIC_API_URL)
+    : PUBLIC_API_URL;
 
 /** Error `application/problem+json` devuelto por la API. */
 export class ApiError extends Error {
@@ -97,6 +106,8 @@ function query(params: Record<string, string | number | boolean | undefined | nu
 export const authApi = {
   loginWithGoogle: (credential: string) =>
     request<User>("/auth/google", { method: "POST", body: { credential } }),
+  loginForDevelopment: (role: UserRole) =>
+    request<User>("/auth/development", { method: "POST", body: { role } }),
   me: () => request<User>("/auth/me"),
   logout: () => request<void>("/auth/logout", { method: "POST" }),
 };
@@ -160,6 +171,25 @@ export type AdminReservationFilters = {
 };
 
 export const adminApi = {
+  clients: () => request<Client[]>("/admin/clients"),
+  createClient: (body: {
+    first_name: string;
+    last_name: string;
+    dui: string;
+    phone: string;
+    email: string;
+  }) => request<Client>("/admin/clients", { method: "POST", body }),
+  updateClient: (
+    id: string,
+    body: Partial<{
+      first_name: string;
+      last_name: string;
+      dui: string;
+      phone: string;
+      email: string;
+      is_active: boolean;
+    }>,
+  ) => request<Client>(`/admin/clients/${id}`, { method: "PATCH", body }),
   stats: () => request<AdminStats>("/admin/stats"),
   reservations: (filters: AdminReservationFilters = {}) =>
     request<Page<AdminReservation>>(`/admin/reservations${query(filters)}`),
@@ -181,6 +211,8 @@ export const adminApi = {
     ),
   facilities: (page = 1, limit = 100) =>
     request<Page<Facility>>(`/admin/facilities${query({ page, limit })}`),
+  facility: (id: string) =>
+    request<FacilityDetail>(`/admin/facilities/${id}`),
   createFacility: (body: Record<string, unknown>) =>
     request<FacilityDetail>("/admin/facilities", { method: "POST", body }),
   updateFacility: (id: string, body: Record<string, unknown>) =>
@@ -192,4 +224,9 @@ export const adminApi = {
     }),
   createRate: (id: string, body: Record<string, unknown>) =>
     request<Rate>(`/admin/facilities/${id}/rates`, { method: "POST", body }),
+  publishRate: (
+    id: string,
+    body: { amount: string; effective_from: string; minimum_minutes?: number },
+  ) =>
+    request<Rate>(`/admin/facilities/${id}/rates/publish`, { method: "POST", body }),
 };

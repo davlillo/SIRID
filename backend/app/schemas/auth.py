@@ -9,6 +9,10 @@ class GoogleLoginRequest(BaseModel):
     credential: str = Field(min_length=16, max_length=4096)
 
 
+class DevelopmentLoginRequest(BaseModel):
+    role: UserRole
+
+
 class UserResponse(BaseModel):
     """El email ya viene verificado por Google: la salida no lo revalida."""
 
