@@ -20,7 +20,14 @@ import type {
   Zone,
 } from "./types";
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/v1";
+const PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/v1";
+
+// En el navegador, localhost apunta al host del usuario. Durante SSR, Next.js
+// corre dentro de su contenedor y debe resolver la API por el nombre del servicio.
+export const API_URL =
+  typeof window === "undefined"
+    ? (process.env.INTERNAL_API_URL ?? PUBLIC_API_URL)
+    : PUBLIC_API_URL;
 
 /** Error `application/problem+json` devuelto por la API. */
 export class ApiError extends Error {
