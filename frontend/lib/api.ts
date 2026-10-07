@@ -14,9 +14,11 @@ import type {
   FacilityDetail,
   NotificationLog,
   Page,
+  RangeCheck,
   Rate,
   Reservation,
   Schedule,
+  ScheduleInput,
   User,
   UserRole,
   Zone,
@@ -134,6 +136,17 @@ export const facilitiesApi = {
   byId: (id: string) => request<FacilityDetail>(`/facilities/${id}`),
   availability: (facilityId: string, date: string, signal?: AbortSignal) =>
     request<Availability>(`/facilities/${facilityId}/availability?date=${date}`, { signal }),
+  checkRange: (
+    facilityId: string,
+    date: string,
+    start: string,
+    end: string,
+    signal?: AbortSignal,
+  ) =>
+    request<RangeCheck>(
+      `/facilities/${facilityId}/availability/check${query({ date, start, end })}`,
+      { signal },
+    ),
 };
 
 // --------------------------------------------------------------------------- //
@@ -217,7 +230,7 @@ export const adminApi = {
     request<FacilityDetail>("/admin/facilities", { method: "POST", body }),
   updateFacility: (id: string, body: Record<string, unknown>) =>
     request<FacilityDetail>(`/admin/facilities/${id}`, { method: "PATCH", body }),
-  replaceSchedules: (id: string, schedules: unknown[]) =>
+  replaceSchedules: (id: string, schedules: ScheduleInput[]) =>
     request<Schedule[]>(`/admin/facilities/${id}/schedules`, {
       method: "POST",
       body: { schedules },

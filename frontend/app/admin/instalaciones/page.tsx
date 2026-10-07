@@ -17,6 +17,8 @@ import {
   useSaveSchedules,
 } from "@/features/admin/hooks";
 import { useAuth } from "@/features/auth/auth-context";
+import { ApiError } from "@/lib/api";
+import { cn } from "@/lib/cn";
 import { KIND_LABEL, SPORT_LABEL, ZONE_LABEL, weekdayLabel } from "@/lib/format";
 import type { Facility, FacilityKind, SportType, Zone } from "@/lib/types";
 
@@ -355,92 +357,294 @@ function FacilityForm({ facility, onDone }: { facility?: Facility; onDone: () =>
   );
 }
 
-type ScheduleDraft = { weekday: number; enabled: boolean; opens_at: string; closes_at: string };
+type RangeDraft = { key: string; opens_at: string; closes_at: string; slot_minutes: number };
+type WeekDraft = RangeDraft[][]; // indice = weekday (lunes = 0)
+
+const SLOT_OPTIONS = [15, 30, 45, 60, 90, 120, 180, 240];
+const MINUTES_PER_DAY = 24 * 60;
+
+let rangeSeq = 0;
+function newKey(): string {
+  rangeSeq += 1;
+  return `range-${rangeSeq}`;
+}
+
+function toMinutes(value: string): number {
+  const [hours, minutes] = value.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+/** `00:00` como cierre es medianoche al final del dia. */
+function closeMinutes(value: string): number {
+  return value === "00:00" ? MINUTES_PER_DAY : toMinutes(value);
+}
+
+function fromMinutes(total: number): string {
+  const clamped = Math.min(total, MINUTES_PER_DAY) % MINUTES_PER_DAY;
+  const hours = String(Math.floor(clamped / 60)).padStart(2, "0");
+  const minutes = String(clamped % 60).padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
+/** Errores por rango y avisos generales. Con errores no se permite guardar. */
+function validateWeek(week: WeekDraft): { invalid: Set<string>; messages: string[] } {
+  const invalid = new Set<string>();
+  const messages: string[] = [];
+
+  week.forEach((ranges, weekday) => {
+    const day = weekdayLabel(weekday);
+    ranges.forEach((range) => {
+      const start = toMinutes(range.opens_at);
+      const end = closeMinutes(range.closes_at);
+      const label = `${range.opens_at}-${range.closes_at}`;
+      if (end <= start) {
+        invalid.add(range.key);
+        messages.push(`El horario del ${day} ${label} debe cerrar despues de abrir.`);
+      } else if (end - start < range.slot_minutes) {
+        invalid.add(range.key);
+        messages.push(
+          `El horario del ${day} ${label} es mas corto que un bloque de ${range.slot_minutes} minutos.`,
+        );
+      }
+    });
+
+    for (let i = 0; i < ranges.length; i += 1) {
+      for (let j = i + 1; j < ranges.length; j += 1) {
+        const a = ranges[i];
+        const b = ranges[j];
+        if (
+          toMinutes(a.opens_at) < closeMinutes(b.closes_at) &&
+          toMinutes(b.opens_at) < closeMinutes(a.closes_at)
+        ) {
+          invalid.add(a.key);
+          invalid.add(b.key);
+          messages.push(
+            `Los horarios del ${day} ${a.opens_at}-${a.closes_at} y ${b.opens_at}-${b.closes_at} se superponen.`,
+          );
+        }
+      }
+    }
+  });
+
+  return { invalid, messages };
+}
 
 function ScheduleEditor({ facility }: { facility: Facility }) {
   const detail = useAdminFacility(facility.id);
   const save = useSaveSchedules();
-  const [draft, setDraft] = useState<ScheduleDraft[] | null>(null);
+  const [draft, setDraft] = useState<WeekDraft | null>(null);
 
-  const rows =
+  const week: WeekDraft =
     draft ??
-    Array.from({ length: 7 }, (_, weekday) => {
-      const existing = detail.data?.schedules.find(
-        (schedule) => schedule.weekday === weekday && schedule.is_active,
-      );
-      return {
-        weekday,
-        enabled: Boolean(existing),
-        opens_at: existing?.opens_at.slice(0, 5) ?? "06:00",
-        closes_at: existing?.closes_at.slice(0, 5) ?? "22:00",
-      };
-    });
+    Array.from({ length: 7 }, (_, weekday) =>
+      (detail.data?.schedules ?? [])
+        .filter((schedule) => schedule.weekday === weekday && schedule.is_active)
+        .sort((left, right) => left.opens_at.localeCompare(right.opens_at))
+        .map((schedule) => ({
+          key: schedule.id,
+          opens_at: schedule.opens_at.slice(0, 5),
+          closes_at: schedule.closes_at.slice(0, 5),
+          slot_minutes: schedule.slot_minutes,
+        })),
+    );
 
-  function update(weekday: number, patch: Partial<ScheduleDraft>) {
-    setDraft(rows.map((row) => (row.weekday === weekday ? { ...row, ...patch } : row)));
+  const today = localDateInput();
+  const rateMinutes = (detail.data?.rates ?? []).find(
+    (rate) =>
+      rate.is_active && rate.valid_from <= today && (!rate.valid_until || rate.valid_until >= today),
+  )?.minimum_minutes;
+
+  const { invalid, messages } = validateWeek(week);
+  const serverError =
+    save.error instanceof ApiError && save.error.status === 422 ? save.error.detail : null;
+
+  function setDay(weekday: number, ranges: RangeDraft[]) {
+    save.reset();
+    setDraft(week.map((current, index) => (index === weekday ? ranges : current)));
   }
+
+  function updateRange(weekday: number, key: string, patch: Partial<RangeDraft>) {
+    setDay(
+      weekday,
+      week[weekday].map((range) => (range.key === key ? { ...range, ...patch } : range)),
+    );
+  }
+
+  function addRange(weekday: number) {
+    const ranges = week[weekday];
+    const last = ranges[ranges.length - 1];
+    const slot = last?.slot_minutes ?? rateMinutes ?? 60;
+    const opens = last ? closeMinutes(last.closes_at) : toMinutes("08:00");
+    const closes = Math.min(opens + Math.max(slot, 120), MINUTES_PER_DAY);
+    setDay(weekday, [
+      ...ranges,
+      { key: newKey(), opens_at: fromMinutes(opens), closes_at: fromMinutes(closes), slot_minutes: slot },
+    ]);
+  }
+
+  function copyToAll(weekday: number) {
+    save.reset();
+    setDraft(
+      week.map((_, index) =>
+        week[weekday].map((range) => ({ ...range, key: index === weekday ? range.key : newKey() })),
+      ),
+    );
+  }
+
+  function submit() {
+    save.mutate({
+      id: facility.id,
+      schedules: week.flatMap((ranges, weekday) =>
+        ranges.map((range) => ({
+          weekday,
+          opens_at: `${range.opens_at}:00`,
+          closes_at: `${range.closes_at}:00`,
+          slot_minutes: range.slot_minutes,
+          is_active: true,
+        })),
+      ),
+    });
+  }
+
+  const warnings = serverError ? [...messages, serverError] : messages;
 
   return (
     <section className="border border-charcoal/20 bg-ivory p-5">
       <TechnicalLabel>HORARIO SEMANAL</TechnicalLabel>
+      <p className="mt-1 text-sm text-charcoal/60">
+        Define uno o varios rangos por dia y cuanto dura cada prestamo. Un cierre a las 00:00
+        significa medianoche.
+      </p>
+
       {detail.isPending ? (
         <div className="mt-3">
           <LoadingBlock />
         </div>
       ) : (
         <>
-          <ul className="mt-3 space-y-2">
-            {rows.map((row) => (
-              <li key={row.weekday} className="flex flex-wrap items-center gap-3">
-                <label className="flex w-32 items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={row.enabled}
-                    onChange={(event) => update(row.weekday, { enabled: event.target.checked })}
-                    className="h-4 w-4 accent-terracotta"
-                  />
-                  {weekdayLabel(row.weekday)}
-                </label>
-                <input
-                  type="time"
-                  aria-label={`Apertura ${weekdayLabel(row.weekday)}`}
-                  value={row.opens_at}
-                  disabled={!row.enabled}
-                  onChange={(event) => update(row.weekday, { opens_at: event.target.value })}
-                  className="min-h-11 border border-charcoal/25 bg-ivory px-2 text-sm disabled:opacity-40"
-                />
-                <span aria-hidden="true" className="text-charcoal/40">
-                  –
-                </span>
-                <input
-                  type="time"
-                  aria-label={`Cierre ${weekdayLabel(row.weekday)}`}
-                  value={row.closes_at}
-                  disabled={!row.enabled}
-                  onChange={(event) => update(row.weekday, { closes_at: event.target.value })}
-                  className="min-h-11 border border-charcoal/25 bg-ivory px-2 text-sm disabled:opacity-40"
-                />
+          {warnings.length > 0 ? (
+            <div
+              role="alert"
+              className="mt-4 border border-state-error/40 bg-state-error/5 p-3 text-sm text-state-error"
+            >
+              <strong className="block font-semibold">
+                Revisa el horario antes de guardar
+              </strong>
+              <ul className="mt-1 list-disc pl-5">
+                {warnings.map((message) => (
+                  <li key={message}>{message}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          <ul className="mt-4 space-y-4">
+            {week.map((ranges, weekday) => (
+              <li key={weekday} className="border-t border-charcoal/10 pt-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm font-semibold">{weekdayLabel(weekday)}</span>
+                  <div className="flex gap-2">
+                    <Button type="button" size="sm" variant="ghost" onClick={() => addRange(weekday)}>
+                      + Agregar rango
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => copyToAll(weekday)}
+                    >
+                      Copiar a todos los dias
+                    </Button>
+                  </div>
+                </div>
+
+                {ranges.length === 0 ? (
+                  <p className="mt-1 text-xs text-charcoal/50">Cerrado</p>
+                ) : (
+                  <ul className="mt-2 space-y-2">
+                    {ranges.map((range) => {
+                      const hasError = invalid.has(range.key);
+                      const control = cn(
+                        "min-h-11 border bg-ivory px-2 text-sm",
+                        hasError ? "border-state-error" : "border-charcoal/25",
+                      );
+                      const slotOptions = SLOT_OPTIONS.includes(range.slot_minutes)
+                        ? SLOT_OPTIONS
+                        : [...SLOT_OPTIONS, range.slot_minutes].sort((a, b) => a - b);
+                      return (
+                        <li key={range.key}>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <input
+                              type="time"
+                              aria-label={`Apertura ${weekdayLabel(weekday)}`}
+                              value={range.opens_at}
+                              onChange={(event) =>
+                                updateRange(weekday, range.key, { opens_at: event.target.value })
+                              }
+                              className={control}
+                            />
+                            <span aria-hidden="true" className="text-charcoal/40">
+                              –
+                            </span>
+                            <input
+                              type="time"
+                              aria-label={`Cierre ${weekdayLabel(weekday)}`}
+                              value={range.closes_at}
+                              onChange={(event) =>
+                                updateRange(weekday, range.key, { closes_at: event.target.value })
+                              }
+                              className={control}
+                            />
+                            <select
+                              aria-label={`Duracion del prestamo ${weekdayLabel(weekday)}`}
+                              value={range.slot_minutes}
+                              onChange={(event) =>
+                                updateRange(weekday, range.key, {
+                                  slot_minutes: Number(event.target.value),
+                                })
+                              }
+                              className={control}
+                            >
+                              {slotOptions.map((minutes) => (
+                                <option key={minutes} value={minutes}>
+                                  Bloques de {minutesLabel(minutes)}
+                                </option>
+                              ))}
+                            </select>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() =>
+                                setDay(
+                                  weekday,
+                                  ranges.filter((item) => item.key !== range.key),
+                                )
+                              }
+                            >
+                              Quitar
+                            </Button>
+                          </div>
+                          {rateMinutes && range.slot_minutes % rateMinutes !== 0 ? (
+                            <p className="mt-1 text-xs text-charcoal/60">
+                              La tarifa cobra bloques de {minutesLabel(rateMinutes)}: cada prestamo
+                              de {minutesLabel(range.slot_minutes)} se cobra redondeando hacia arriba.
+                            </p>
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
               </li>
             ))}
           </ul>
 
           <Button
-            className="mt-4"
+            className="mt-5"
             size="sm"
-            disabled={save.isPending}
-            onClick={() =>
-              save.mutate({
-                id: facility.id,
-                schedules: rows
-                  .filter((row) => row.enabled)
-                  .map((row) => ({
-                    weekday: row.weekday,
-                    opens_at: `${row.opens_at}:00`,
-                    closes_at: `${row.closes_at}:00`,
-                    is_active: true,
-                  })),
-              })
-            }
+            disabled={save.isPending || messages.length > 0}
+            onClick={submit}
           >
             {save.isPending ? "Guardando…" : "Guardar horario"}
           </Button>

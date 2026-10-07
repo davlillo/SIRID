@@ -21,6 +21,7 @@ from app.domain.errors import (
 )
 from app.domain.rules import (
     assert_completable,
+    assert_fits_slots,
     assert_period,
     assert_transition,
     assert_within_operating_hours,
@@ -63,11 +64,12 @@ class ReservationService:
 
         facility = await self.facilities.require_bookable(command.facility_id)  # RN-10
         interval = assert_period(command.starts_at, command.ends_at, now)  # RN-03
-        assert_within_operating_hours(  # RN-02
+        window = assert_within_operating_hours(  # RN-02
             interval,
             await self.schedules.operating_windows(facility.id),
             settings.timezone,
         )
+        assert_fits_slots(interval, window, settings.timezone)
         quote = await self.rates.quote(facility.id, interval)  # RN-04
 
         # Comprobacion previa: da un mensaje util, no garantiza nada por si sola.

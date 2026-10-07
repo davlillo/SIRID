@@ -36,7 +36,7 @@ export function AvailabilityCalendar({
 }: {
   facilityId: string;
   date: string;
-  selected?: Slot | null;
+  selected?: Slot[];
   onSelect?: (slot: Slot) => void;
   isBookable?: boolean;
 }) {
@@ -73,19 +73,35 @@ export function AvailabilityCalendar({
   }
 
   const available = data.slots.filter((slot) => slot.status === "AVAILABLE").length;
+  const durations = Array.from(
+    new Set(data.operating_windows.map((window) => window.slot_minutes)),
+  );
+  const blockLabel =
+    durations.length > 1
+      ? data.operating_windows
+          .map(
+            (window) =>
+              `${formatTime(window.starts_at)}-${formatTime(window.ends_at)} EN ${window.slot_minutes} MIN`,
+          )
+          .join(" · ")
+      : `BLOQUES DE ${durations[0] ?? data.slot_minutes} MIN`;
 
   return (
     <section aria-label="Bloques de disponibilidad">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <TechnicalLabel>
-          BLOQUES DE {data.slot_minutes} MIN · {available} LIBRES DE {data.slots.length}
+          {blockLabel} · {available} LIBRES DE {data.slots.length}
         </TechnicalLabel>
         {isFetching ? <TechnicalLabel>ACTUALIZANDO…</TechnicalLabel> : null}
       </div>
 
       <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
         {data.slots.map((slot) => {
-          const isSelected = selected?.starts_at === slot.starts_at;
+          const isSelected = (selected ?? []).some(
+            (item) =>
+              Date.parse(item.starts_at) <= Date.parse(slot.starts_at) &&
+              Date.parse(slot.ends_at) <= Date.parse(item.ends_at),
+          );
           const selectable = isBookable && slot.status === "AVAILABLE" && Boolean(onSelect);
 
           return (

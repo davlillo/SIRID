@@ -125,7 +125,8 @@ class FacilityScheduleModel(Base):
     facility_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("facilities.id", ondelete="CASCADE"))
     weekday: Mapped[int] = mapped_column(SmallInteger)  # Lunes = 0, domingo = 6.
     opens_at: Mapped[time] = mapped_column(Time)
-    closes_at: Mapped[time] = mapped_column(Time)
+    closes_at: Mapped[time] = mapped_column(Time)  # 00:00 = cierre a medianoche.
+    slot_minutes: Mapped[int] = mapped_column(Integer, server_default="60")
     is_active: Mapped[bool] = mapped_column(Boolean, server_default="true")
 
     facility: Mapped[FacilityModel] = relationship(back_populates="schedules")

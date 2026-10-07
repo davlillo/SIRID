@@ -14,9 +14,11 @@ from app.domain.errors import (
     ReservationNotFinished,
 )
 from app.domain.rules import (
+    BookableWindow,
     Interval,
     OperatingWindow,
     assert_completable,
+    assert_fits_slots,
     assert_minimum_duration,
     assert_period,
     assert_transition,
@@ -24,6 +26,7 @@ from app.domain.rules import (
     quote_amount,
     split_into_slots,
     subtract_busy,
+    suggest_alternatives,
 )
 
 TZ = ZoneInfo("America/Guatemala")
@@ -187,3 +190,69 @@ class TestAvailabilitySlicing:
         window = Interval(local(2026, 10, 5, 8), local(2026, 10, 5, 9, 30))
         slots = split_into_slots(window, 60)
         assert slots == [Interval(local(2026, 10, 5, 8), local(2026, 10, 5, 9))]
+
+
+class TestAlternatives:
+    day = Interval(local(2026, 10, 5, 8), local(2026, 10, 5, 14))
+    windows = [BookableWindow(day, 60)]
+    requested = Interval(local(2026, 10, 5, 10), local(2026, 10, 5, 12))
+
+    def test_suggests_gaps_with_the_requested_duration(self):
+        busy = [Interval(local(2026, 10, 5, 10), local(2026, 10, 5, 11))]
+        result = suggest_alternatives(self.windows, busy, self.requested, NOW)
+        assert result == [
+            Interval(local(2026, 10, 5, 8), local(2026, 10, 5, 10)),
+            Interval(local(2026, 10, 5, 11), local(2026, 10, 5, 13)),
+            Interval(local(2026, 10, 5, 12), local(2026, 10, 5, 14)),
+        ]
+        assert all(item.minutes == 120 for item in result)
+        assert not any(item.overlaps(busy[0]) for item in result)
+
+    def test_returns_nothing_when_the_day_is_full(self):
+        result = suggest_alternatives(self.windows, [self.day], self.requested, NOW)
+        assert result == []
+
+    def test_excludes_candidates_that_already_started(self):
+        now = local(2026, 10, 5, 9, 30)
+        busy = [Interval(local(2026, 10, 5, 10), local(2026, 10, 5, 11))]
+        result = suggest_alternatives(self.windows, busy, self.requested, now)
+        assert all(item.start > now for item in result)
+        assert Interval(local(2026, 10, 5, 8), local(2026, 10, 5, 10)) not in result
+
+    def test_keeps_only_the_closest_candidates(self):
+        windows = [BookableWindow(Interval(local(2026, 10, 5, 6), local(2026, 10, 5, 22)), 60)]
+        requested = Interval(local(2026, 10, 5, 12), local(2026, 10, 5, 13))
+        busy = [requested]
+        result = suggest_alternatives(windows, busy, requested, NOW, limit=2)
+        assert result == [
+            Interval(local(2026, 10, 5, 11), local(2026, 10, 5, 12)),
+            Interval(local(2026, 10, 5, 13), local(2026, 10, 5, 14)),
+        ]
+
+    def test_uses_the_step_of_each_window(self):
+        windows = [
+            BookableWindow(Interval(local(2026, 10, 5, 8), local(2026, 10, 5, 12)), 120),
+            BookableWindow(Interval(local(2026, 10, 5, 14), local(2026, 10, 5, 17)), 90),
+        ]
+        requested = Interval(local(2026, 10, 5, 8), local(2026, 10, 5, 11))
+        result = suggest_alternatives(windows, [], requested, NOW)
+        # 180 min no son bloques completos de 120: solo aporta la ventana de 90.
+        assert result == [Interval(local(2026, 10, 5, 14), local(2026, 10, 5, 17))]
+
+
+class TestFitsSlots:
+    window = OperatingWindow(weekday=0, opens_at=time(8, 0), closes_at=time(22, 0), slot_minutes=90)
+
+    def test_accepts_whole_blocks_from_the_opening(self):
+        interval = Interval(local(2026, 10, 5, 9, 30), local(2026, 10, 5, 12, 30))
+        assert_fits_slots(interval, self.window, TZ)
+
+    def test_rejects_a_start_between_blocks(self):
+        interval = Interval(local(2026, 10, 5, 9), local(2026, 10, 5, 10, 30))
+        with pytest.raises(InvalidReservationPeriod):
+            assert_fits_slots(interval, self.window, TZ)
+
+    def test_rejects_a_duration_that_is_not_whole_blocks(self):
+        interval = Interval(local(2026, 10, 5, 8), local(2026, 10, 5, 10))
+        with pytest.raises(InvalidReservationPeriod):
+            assert_fits_slots(interval, self.window, TZ)

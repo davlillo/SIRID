@@ -18,7 +18,8 @@ class FacilityImageResponse(BaseModel):
 class ScheduleEntry(BaseModel):
     weekday: int = Field(ge=0, le=6, description="Lunes = 0, domingo = 6")
     opens_at: time
-    closes_at: time
+    closes_at: time = Field(description="00:00 significa cierre a medianoche")
+    slot_minutes: int = Field(default=60, description="Duracion de cada bloque de prestamo")
     is_active: bool = True
 
 
