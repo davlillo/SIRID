@@ -3,6 +3,8 @@
 import uuid
 from datetime import datetime, time, timedelta
 
+import pytest
+
 from app.core.config import settings
 from app.domain.enums import ReservationStatus
 from app.infrastructure.models import ReservationModel
@@ -299,6 +301,148 @@ class TestCatalog:
         )
 
         assert response.status_code == 422
+
+    async def test_an_overlap_warns_in_spanish_and_keeps_the_previous_schedule(
+        self, client, encargado, facility
+    ):
+        authenticate(client, encargado)
+
+        response = await client.post(
+            f"/v1/admin/facilities/{facility.id}/schedules",
+            json={
+                "schedules": [
+                    {"weekday": 0, "opens_at": "08:00:00", "closes_at": "12:00:00"},
+                    {"weekday": 0, "opens_at": "11:00:00", "closes_at": "14:00:00"},
+                ]
+            },
+        )
+
+        assert response.status_code == 422
+        assert response.json()["detail"] == (
+            "Los horarios del Lunes 08:00-12:00 y 11:00-14:00 se superponen."
+        )
+        detail = await client.get(f"/v1/admin/facilities/{facility.id}")
+        assert len(detail.json()["schedules"]) == 7
+
+    async def test_an_encargado_saves_split_ranges_with_their_own_duration(
+        self, client, encargado, facility
+    ):
+        authenticate(client, encargado)
+
+        response = await client.post(
+            f"/v1/admin/facilities/{facility.id}/schedules",
+            json={
+                "schedules": [
+                    {
+                        "weekday": 0,
+                        "opens_at": "06:00:00",
+                        "closes_at": "12:00:00",
+                        "slot_minutes": 60,
+                    },
+                    {
+                        "weekday": 0,
+                        "opens_at": "14:00:00",
+                        "closes_at": "20:00:00",
+                        "slot_minutes": 90,
+                    },
+                ]
+            },
+        )
+
+        assert response.status_code == 200
+        assert [item["slot_minutes"] for item in response.json()] == [60, 90]
+
+    async def test_a_range_can_close_at_midnight(self, client, admin, facility):
+        authenticate(client, admin)
+
+        response = await client.post(
+            f"/v1/admin/facilities/{facility.id}/schedules",
+            json={
+                "schedules": [
+                    {"weekday": 4, "opens_at": "18:00:00", "closes_at": "00:00:00"},
+                ]
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json()[0]["closes_at"] == "00:00:00"
+
+    @pytest.mark.parametrize("slot_minutes", [0, 20, 1500])
+    async def test_an_invalid_duration_is_rejected(
+        self, client, admin, facility, slot_minutes
+    ):
+        authenticate(client, admin)
+
+        response = await client.post(
+            f"/v1/admin/facilities/{facility.id}/schedules",
+            json={
+                "schedules": [
+                    {
+                        "weekday": 0,
+                        "opens_at": "08:00:00",
+                        "closes_at": "20:00:00",
+                        "slot_minutes": slot_minutes,
+                    },
+                ]
+            },
+        )
+
+        assert response.status_code == 422
+
+    async def test_a_range_shorter_than_one_block_is_rejected(self, client, admin, facility):
+        authenticate(client, admin)
+
+        response = await client.post(
+            f"/v1/admin/facilities/{facility.id}/schedules",
+            json={
+                "schedules": [
+                    {
+                        "weekday": 0,
+                        "opens_at": "08:00:00",
+                        "closes_at": "09:00:00",
+                        "slot_minutes": 120,
+                    },
+                ]
+            },
+        )
+
+        assert response.status_code == 422
+
+    async def test_a_client_cannot_change_schedules(self, client, customer, facility):
+        authenticate(client, customer)
+
+        response = await client.post(
+            f"/v1/admin/facilities/{facility.id}/schedules",
+            json={"schedules": []},
+        )
+
+        assert response.status_code == 403
+
+    async def test_a_saved_schedule_drives_availability(self, client, encargado, facility):
+        """Criterio 1: lo guardado queda disponible para futuras reservas."""
+        authenticate(client, encargado)
+        day = datetime.now(settings.timezone).date() + timedelta(days=1)
+        await client.post(
+            f"/v1/admin/facilities/{facility.id}/schedules",
+            json={
+                "schedules": [
+                    {
+                        "weekday": day.weekday(),
+                        "opens_at": "09:00:00",
+                        "closes_at": "13:30:00",
+                        "slot_minutes": 90,
+                    },
+                ]
+            },
+        )
+
+        body = (
+            await client.get(f"/v1/facilities/{facility.id}/availability?date={day}")
+        ).json()
+
+        assert body["operating_windows"][0]["slot_minutes"] == 90
+        assert len(body["slots"]) == 3  # 09:00, 10:30 y 12:00
+        assert all(slot["status"] == "AVAILABLE" for slot in body["slots"])
 
     async def test_an_admin_adds_a_rate(self, client, admin, facility):
         authenticate(client, admin)

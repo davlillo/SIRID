@@ -1,11 +1,18 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime, time, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 
 from app.api.deps import SessionDep, availability_rate_limit
 from app.domain.enums import FacilityKind, SportType, Zone
-from app.schemas.availability import AvailabilityResponse, IntervalResponse, SlotResponse
+from app.schemas.availability import (
+    AvailabilityResponse,
+    IntervalResponse,
+    QuotedIntervalResponse,
+    RangeCheckResponse,
+    SlotResponse,
+    WindowResponse,
+)
 from app.schemas.common import Page
 from app.schemas.facility import FacilityDetailResponse, FacilityResponse
 from app.services.availability_service import AvailabilityService
@@ -80,7 +87,9 @@ async def read_availability(
         slot_minutes=result.slot_minutes,
         currency=result.currency,
         operating_windows=[
-            IntervalResponse(starts_at=window.start, ends_at=window.end)
+            WindowResponse(
+                starts_at=window.start, ends_at=window.end, slot_minutes=window.slot_minutes
+            )
             for window in result.operating_windows
         ],
         busy=[
@@ -94,5 +103,39 @@ async def read_availability(
                 amount=slot.amount,
             )
             for slot in result.slots
+        ],
+    )
+
+
+@router.get(
+    "/{facility_id}/availability/check",
+    response_model=RangeCheckResponse,
+    dependencies=[Depends(availability_rate_limit)],
+    summary="Libre u ocupado para un rango de horas, con alternativas del mismo dia",
+)
+async def check_availability_range(
+    facility_id: UUID,
+    session: SessionDep,
+    target_date: date = Query(alias="date", description="Fecha local del complejo, YYYY-MM-DD"),
+    start: time = Query(description="Hora local de inicio, HH:MM"),
+    end: time = Query(description="Hora local de fin, HH:MM. 00:00 es medianoche"),
+) -> RangeCheckResponse:
+    result = await AvailabilityService(session).check_range(
+        facility_id, target_date, start, end, datetime.now(timezone.utc)
+    )
+    return RangeCheckResponse(
+        facility_id=result.facility_id,
+        date=result.date,
+        timezone=result.timezone,
+        currency=result.currency,
+        starts_at=result.starts_at,
+        ends_at=result.ends_at,
+        status=result.status,
+        amount=result.amount,
+        alternatives=[
+            QuotedIntervalResponse(
+                starts_at=item.starts_at, ends_at=item.ends_at, amount=item.amount
+            )
+            for item in result.alternatives
         ],
     )

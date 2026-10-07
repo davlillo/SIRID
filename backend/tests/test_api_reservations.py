@@ -2,10 +2,11 @@
 
 from datetime import datetime, time, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
 from app.core.config import settings
 from app.infrastructure.models import (
+    FacilityScheduleModel,
     NotificationLogModel,
     ReservationEventModel,
     ReservationModel,
@@ -52,6 +53,23 @@ class TestCreate:
         assert body["currency"] == "USD"
 
     async def test_an_hour_and_a_half_is_charged_as_two_blocks(
+        self, client, customer, facility, db_session
+    ):
+        """Rango de bloques de 30 min y tarifa por hora: 90 min cobran dos horas."""
+        await db_session.execute(
+            update(FacilityScheduleModel)
+            .where(FacilityScheduleModel.facility_id == facility.id)
+            .values(slot_minutes=30)
+        )
+        await db_session.commit()
+        authenticate(client, customer)
+        payload = {"facility_id": str(facility.id), **slot_at(18, minutes=90)}
+
+        response = await client.post("/v1/reservations", json=payload)
+
+        assert response.json()["quoted_amount"] == "80.00"
+
+    async def test_a_period_that_is_not_whole_blocks_is_rejected(
         self, client, customer, facility
     ):
         authenticate(client, customer)
@@ -59,7 +77,24 @@ class TestCreate:
 
         response = await client.post("/v1/reservations", json=payload)
 
-        assert response.json()["quoted_amount"] == "80.00"
+        assert response.status_code == 422
+        assert "bloques de 60 minutos" in response.json()["detail"]
+
+    async def test_a_period_misaligned_with_the_range_is_rejected(
+        self, client, customer, facility
+    ):
+        authenticate(client, customer)
+        day = datetime.now(settings.timezone).date() + timedelta(days=1)
+        start = datetime.combine(day, time(18, 30), tzinfo=settings.timezone)
+        payload = {
+            "facility_id": str(facility.id),
+            "starts_at": start.isoformat(),
+            "ends_at": (start + timedelta(hours=1)).isoformat(),
+        }
+
+        response = await client.post("/v1/reservations", json=payload)
+
+        assert response.status_code == 422
 
     async def test_creation_records_an_audit_event(
         self, client, customer, facility, db_session
@@ -147,7 +182,7 @@ class TestOverlap:
         authenticate(client, customer)
         await create_reservation(client, facility)
 
-        status, _ = await create_reservation(client, facility, **slot_at(18, minutes=90))
+        status, _ = await create_reservation(client, facility, **slot_at(17, minutes=120))
 
         assert status == 409
 

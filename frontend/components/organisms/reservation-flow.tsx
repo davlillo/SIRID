@@ -19,6 +19,7 @@ import { formatDate, formatMoney, formatTime, todayInComplex } from "@/lib/forma
 import type { FacilityDetail, Slot } from "@/lib/types";
 import { DateStepper } from "../molecules/date-stepper";
 import { AvailabilityCalendar } from "./availability-calendar";
+import { RangeChecker } from "./range-checker";
 
 const STEPS = ["Fecha", "Bloque", "Datos", "Confirmar"] as const;
 
@@ -28,20 +29,27 @@ export function ReservationFlow({ facility }: { facility: FacilityDetail }) {
   const createReservation = useCreateReservation();
 
   const [date, setDate] = useState(todayInComplex());
-  const [slot, setSlot] = useState<Slot | null>(null);
+  // Varios tramos solo cuando se reserva un dia con entretiempo.
+  const [selection, setSelection] = useState<Slot[]>([]);
   const [note, setNote] = useState("");
 
-  const step = !slot ? 1 : !user ? 3 : 4;
+  const step = selection.length === 0 ? 1 : !user ? 3 : 4;
+  const total = selection.reduce((sum, item) => sum + Number(item.amount ?? 0), 0);
 
   async function submit() {
-    if (!slot) return;
-    const reservation = await createReservation.mutateAsync({
-      facility_id: facility.id,
-      starts_at: slot.starts_at,
-      ends_at: slot.ends_at,
-      customer_note: note.trim() || undefined,
-    });
-    router.push(`/mis-reservas?nueva=${reservation.id}`);
+    if (selection.length === 0) return;
+    let lastId = "";
+    // Una solicitud por tramo; si una falla, el hook avisa y se detiene aqui.
+    for (const item of selection) {
+      const reservation = await createReservation.mutateAsync({
+        facility_id: facility.id,
+        starts_at: item.starts_at,
+        ends_at: item.ends_at,
+        customer_note: note.trim() || undefined,
+      });
+      lastId = reservation.id;
+    }
+    router.push(`/mis-reservas?nueva=${lastId}`);
   }
 
   return (
@@ -57,7 +65,7 @@ export function ReservationFlow({ facility }: { facility: FacilityDetail }) {
                 value={date}
                 onChange={(next) => {
                   setDate(next);
-                  setSlot(null);
+                  setSelection([]);
                 }}
               />
             </div>
@@ -65,12 +73,19 @@ export function ReservationFlow({ facility }: { facility: FacilityDetail }) {
 
           <div>
             <TechnicalLabel>PASO 2 · ELEGI EL BLOQUE</TechnicalLabel>
-            <div className="mt-2">
+            <div className="mt-2 space-y-4">
+              <RangeChecker
+                key={date}
+                facilityId={facility.id}
+                date={date}
+                onPick={setSelection}
+                isBookable={facility.is_bookable}
+              />
               <AvailabilityCalendar
                 facilityId={facility.id}
                 date={date}
-                selected={slot}
-                onSelect={setSlot}
+                selected={selection}
+                onSelect={(slot) => setSelection([slot])}
                 isBookable={facility.is_bookable}
               />
             </div>
@@ -108,13 +123,20 @@ export function ReservationFlow({ facility }: { facility: FacilityDetail }) {
           <Row
             label="Horario"
             value={
-              slot ? `${formatTime(slot.starts_at)} – ${formatTime(slot.ends_at)}` : "Sin elegir"
+              selection.length > 0
+                ? selection
+                    .map((item) => `${formatTime(item.starts_at)} – ${formatTime(item.ends_at)}`)
+                    .join(" y ")
+                : "Sin elegir"
             }
           />
+          {selection.length > 1 ? (
+            <Row label="Solicitudes" value={`${selection.length} tramos por el entretiempo`} />
+          ) : null}
           <Row label="Ubicacion" value={facility.location_label} />
           <Row
             label="Importe"
-            value={slot?.amount ? formatMoney(slot.amount) : "—"}
+            value={selection.some((item) => item.amount) ? formatMoney(total) : "—"}
             emphasis
           />
         </dl>
@@ -135,7 +157,7 @@ export function ReservationFlow({ facility }: { facility: FacilityDetail }) {
             <Button
               className="w-full"
               size="lg"
-              disabled={!slot || createReservation.isPending}
+              disabled={selection.length === 0 || createReservation.isPending}
               onClick={() => void submit()}
             >
               {createReservation.isPending ? "Enviando…" : "Confirmar solicitud"}

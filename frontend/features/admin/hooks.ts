@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { ApiError, adminApi, type AdminReservationFilters } from "@/lib/api";
+import type { ScheduleInput } from "@/lib/types";
 import { useToast } from "../ui/toast-context";
 
 export function useAdminStats() {
@@ -158,7 +159,7 @@ export function useSaveSchedules() {
   const { notify } = useToast();
 
   return useMutation({
-    mutationFn: ({ id, schedules }: { id: string; schedules: unknown[] }) =>
+    mutationFn: ({ id, schedules }: { id: string; schedules: ScheduleInput[] }) =>
       adminApi.replaceSchedules(id, schedules),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "facilities"] });

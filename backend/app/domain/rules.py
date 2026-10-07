@@ -50,11 +50,28 @@ class Interval:
 
 @dataclass(frozen=True)
 class OperatingWindow:
-    """Ventana operativa de un dia concreto, ya resuelta a instantes."""
+    """Rango semanal de un dia: horas locales y duracion del prestamo."""
 
     weekday: int
     opens_at: time
     closes_at: time
+    slot_minutes: int = 60
+
+
+@dataclass(frozen=True)
+class BookableWindow:
+    """Rango operativo de una fecha concreta, ya resuelto a instantes."""
+
+    interval: Interval
+    slot_minutes: int
+
+    @property
+    def start(self) -> datetime:
+        return self.interval.start
+
+    @property
+    def end(self) -> datetime:
+        return self.interval.end
 
 
 def assert_transition(current: ReservationStatus, target: ReservationStatus) -> None:
@@ -130,6 +147,19 @@ def assert_within_operating_hours(
     )
 
 
+def assert_fits_slots(interval: Interval, window: OperatingWindow, tz) -> None:
+    """El periodo debe empezar en un bloque del rango y durar bloques completos."""
+    slot = window.slot_minutes
+    local_start = interval.start.astimezone(tz)
+    opens = datetime.combine(local_start.date(), window.opens_at, tzinfo=tz)
+    offset = int((local_start - opens).total_seconds() // 60)
+    if offset % slot or interval.minutes % slot:
+        raise InvalidReservationPeriod(
+            f"En este horario se reserva en bloques de {slot} minutos contados desde las "
+            f"{window.opens_at.strftime('%H:%M')}."
+        )
+
+
 def quote_amount(unit_amount: Decimal, minimum_minutes: int, interval: Interval) -> Decimal:
     """RN-04: se cobran bloques completos de `minimum_minutes`.
 
@@ -160,6 +190,44 @@ def subtract_busy(window: Interval, busy: list[Interval]) -> list[Interval]:
     if cursor < window.end:
         free.append(Interval(cursor, window.end))
     return free
+
+
+def suggest_alternatives(
+    windows: list[BookableWindow],
+    busy: list[Interval],
+    requested: Interval,
+    now: datetime,
+    limit: int = 5,
+) -> list[Interval]:
+    """Huecos libres del mismo dia con la duracion pedida, los mas cercanos primero.
+
+    Los candidatos arrancan en bloques de cada ventana desde su apertura, para
+    que coincidan con el calendario. Una ventana cuyos bloques no encajan con la
+    duracion pedida no aporta candidatos.
+    """
+    duration = requested.end - requested.start
+    if duration <= timedelta(0) or limit <= 0:
+        return []
+
+    candidates: list[Interval] = []
+    for window in windows:
+        if window.slot_minutes <= 0 or requested.minutes % window.slot_minutes:
+            continue
+        step = timedelta(minutes=window.slot_minutes)
+        free = subtract_busy(window.interval, busy)
+        cursor = window.start
+        while cursor + duration <= window.end:
+            candidate = Interval(cursor, cursor + duration)
+            if (
+                candidate.start > now
+                and candidate != requested
+                and any(gap.start <= candidate.start and candidate.end <= gap.end for gap in free)
+            ):
+                candidates.append(candidate)
+            cursor += step
+
+    candidates.sort(key=lambda item: (abs(item.start - requested.start), item.start))
+    return sorted(candidates[:limit], key=lambda item: item.start)
 
 
 def split_into_slots(window: Interval, slot_minutes: int) -> list[Interval]:

@@ -31,8 +31,31 @@ Base URL local: `http://localhost:8000/v1`
 | GET | `/facilities` | Publico |
 | GET | `/facilities/{facility_id}` | Publico |
 | GET | `/facilities/{facility_id}/availability?date=YYYY-MM-DD` | Publico |
+| GET | `/facilities/{facility_id}/availability/check?date=YYYY-MM-DD&start=HH:MM&end=HH:MM` | Publico |
 
 La disponibilidad debe devolver horarios operativos, bloques ocupados y tarifas aplicables. No debe exponer datos personales de reservas ajenas.
+
+### Consulta de un rango concreto
+
+`/availability/check` responde si un rango de horas locales del complejo se puede reservar. `end=00:00` significa medianoche al final del dia. Si el rango no se puede reservar, sugiere hasta cinco alternativas del mismo dia con la misma duracion, alineadas a los bloques de la tarifa y ordenadas por hora.
+
+```json
+{
+  "facility_id": "uuid",
+  "date": "2026-10-07",
+  "timezone": "America/Guatemala",
+  "currency": "USD",
+  "starts_at": "2026-10-07T18:00:00-06:00",
+  "ends_at": "2026-10-07T20:00:00-06:00",
+  "status": "BUSY",
+  "amount": null,
+  "alternatives": [
+    { "starts_at": "2026-10-07T16:00:00-06:00", "ends_at": "2026-10-07T18:00:00-06:00", "amount": "80.00" }
+  ]
+}
+```
+
+`status` puede ser `AVAILABLE`, `BUSY`, `PAST`, `CLOSED`, `OUTSIDE_HOURS` o `UNAVAILABLE` (instalacion no reservable). `amount` solo viene cuando el rango esta libre. Un rango invertido o mas corto que la duracion minima de la tarifa responde `422`. Igual que la consulta por fecha, es informativa: la garantia final sigue siendo la constraint de PostgreSQL al crear la reserva.
 
 ## Respuesta de instalacion
 

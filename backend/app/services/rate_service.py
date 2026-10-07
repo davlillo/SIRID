@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.domain.errors import InvalidRate, RateNotAvailable
-from app.domain.rules import Interval, assert_minimum_duration, quote_amount
+from app.domain.rules import Interval, quote_amount
 from app.infrastructure.models import FacilityRateModel
 from app.repositories.rate_repository import RateRepository
 
@@ -34,11 +34,6 @@ class RateService:
     async def active_on(self, facility_id: UUID, on_date: date) -> FacilityRateModel | None:
         return await self.rates.active_on(facility_id, on_date)
 
-    async def slot_minutes(self, facility_id: UUID, on_date: date) -> int:
-        """La granularidad de los bloques ofrecidos la define la tarifa vigente."""
-        rate = await self.rates.active_on(facility_id, on_date)
-        return rate.minimum_minutes if rate else DEFAULT_SLOT_MINUTES
-
     async def quote(self, facility_id: UUID, interval: Interval) -> Quote:
         """Cotiza con la tarifa vigente al inicio del periodo.
 
@@ -50,7 +45,7 @@ class RateService:
         if rate is None:
             raise RateNotAvailable("La instalación no tiene una tarifa activa para esa fecha.")
 
-        assert_minimum_duration(interval, rate.minimum_minutes)
+        # La duracion valida la decide el rango de horario (assert_fits_slots).
         return Quote(
             amount=quote_amount(rate.amount, rate.minimum_minutes, interval),
             currency=rate.currency,

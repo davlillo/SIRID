@@ -70,13 +70,17 @@ export type Facility = {
   images: FacilityImage[];
 };
 
-export type Schedule = {
-  id: string;
+export type ScheduleInput = {
   weekday: number;
   opens_at: string;
+  /** `00:00:00` significa cierre a medianoche. */
   closes_at: string;
+  /** Duracion de cada bloque de prestamo en este rango. */
+  slot_minutes: number;
   is_active: boolean;
 };
+
+export type Schedule = ScheduleInput & { id: string };
 
 export type Rate = {
   id: string;
@@ -105,16 +109,43 @@ export type Slot = Interval & {
   amount: string | null;
 };
 
+export type OperatingWindow = Interval & {
+  slot_minutes: number;
+};
+
 export type Availability = {
   facility_id: string;
   date: string;
   timezone: string;
   is_open: boolean;
+  /** Duracion de la primera ventana; la real va en cada `operating_windows`. */
   slot_minutes: number;
   currency: string;
-  operating_windows: Interval[];
+  operating_windows: OperatingWindow[];
   busy: Interval[];
   slots: Slot[];
+};
+
+export type RangeStatus =
+  | "AVAILABLE"
+  | "BUSY"
+  | "PAST"
+  | "CLOSED"
+  | "OUTSIDE_HOURS"
+  | "UNAVAILABLE";
+
+export type QuotedInterval = Interval & {
+  amount: string | null;
+};
+
+export type RangeCheck = Interval & {
+  facility_id: string;
+  date: string;
+  timezone: string;
+  currency: string;
+  status: RangeStatus;
+  amount: string | null;
+  alternatives: QuotedInterval[];
 };
 
 export type Reservation = {

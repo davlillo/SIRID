@@ -65,7 +65,8 @@ async def seed() -> None:
 
             await session.flush()
 
-            await _replace_schedules(session, facility.id, entry["schedules"])
+            slot_minutes = entry["rate"]["minutes"] if entry.get("rate") else 60
+            await _replace_schedules(session, facility.id, entry["schedules"], slot_minutes)
             await _replace_images(session, facility.id, entry["images"])
             await _ensure_rate(session, facility.id, entry["rate"])
 
@@ -76,7 +77,9 @@ async def seed() -> None:
         logger.info("Seed complete: %s created, %s updated.", created, updated)
 
 
-async def _replace_schedules(session, facility_id, schedules: list[dict]) -> None:
+async def _replace_schedules(
+    session, facility_id, schedules: list[dict], slot_minutes: int
+) -> None:
     await session.execute(
         delete(FacilityScheduleModel).where(FacilityScheduleModel.facility_id == facility_id)
     )
@@ -86,6 +89,7 @@ async def _replace_schedules(session, facility_id, schedules: list[dict]) -> Non
             weekday=item["weekday"],
             opens_at=item["opens_at"],
             closes_at=item["closes_at"],
+            slot_minutes=item.get("slot_minutes", slot_minutes),
             is_active=True,
         )
         for item in schedules

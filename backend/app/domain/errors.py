@@ -89,7 +89,7 @@ class FacilitySlugTaken(DomainError):
 
 class InvalidSchedule(DomainError):
     status = 422
-    title = "Invalid schedule"
+    title = "Horario invalido"
     slug = "invalid-schedule"
 
 
