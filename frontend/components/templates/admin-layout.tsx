@@ -16,7 +16,7 @@ const SECTIONS = [
   { href: "/admin/organizaciones", label: "Organizaciones", access: "admin" },
   { href: "/admin/usuarios", label: "Usuarios", access: "admin" },
   { href: "/admin/clientes", label: "Clientes", access: "admin" },
-  { href: "/admin/instalaciones", label: "Instalaciones", access: "admin" },
+  { href: "/admin/instalaciones", label: "Instalaciones", access: "catalog" },
   { href: "/admin/reservas", label: "Reservas", access: "reservations" },
 ];
 
@@ -35,7 +35,12 @@ export function AdminLayout({
 }) {
   const pathname = usePathname();
   const { user, isAdmin, isReservationManager, isLoading } = useAuth();
-  const allowed = access === "reservations" ? isReservationManager : isAdmin;
+  const allowed =
+    access === "reservations"
+      ? isReservationManager
+      : access === "catalog"
+        ? isAdmin || isReservationManager
+        : isAdmin;
 
   if (isLoading) {
     return (
@@ -81,9 +86,13 @@ export function AdminLayout({
           <nav aria-label="Secciones del panel" className="lg:sticky lg:top-8">
             <TechnicalLabel>PANEL</TechnicalLabel>
             <ul className="mt-3 flex gap-2 overflow-x-auto lg:flex-col lg:overflow-visible">
-              {SECTIONS.filter((section) =>
-                section.access === "admin" ? isAdmin : isReservationManager,
-              ).map((section) => {
+              {SECTIONS.filter((section) => {
+                if (section.access === "admin") return isAdmin;
+                if (section.access === "catalog") {
+                  return isAdmin || isReservationManager;
+                }
+                return isReservationManager;
+              }).map((section) => {
                 const active =
                   section.href === "/admin"
                     ? pathname === "/admin"

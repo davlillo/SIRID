@@ -302,17 +302,27 @@ async def list_all_facilities(
 
 @router.get("/facilities/{facility_id}", response_model=FacilityDetailResponse)
 async def read_admin_facility(
-    facility_id: UUID, session: SessionDep, staff: AdminUser
+    facility_id: UUID, session: SessionDep, staff: CatalogStaffUser
 ) -> FacilityDetailResponse:
-    facility = await FacilityService(session).get(facility_id, include_inactive=True)
+    facility = await FacilityService(session).get(
+        facility_id,
+        organization_id=(
+            staff.organization_id if staff.role == UserRole.ENCARGADO else None
+        ),
+        include_inactive=True,
+    )
     return FacilityDetailResponse.model_validate(facility)
 
 
 @router.post("/facilities", response_model=FacilityDetailResponse, status_code=201)
 async def create_facility(
-    payload: FacilityCreate, session: SessionDep, staff: AdminUser
+    payload: FacilityCreate, session: SessionDep, staff: CatalogStaffUser
 ) -> FacilityDetailResponse:
-    facility = await FacilityService(session).create(payload.model_dump())
+    data = payload.model_dump()
+    if staff.role == UserRole.ENCARGADO:
+        # HU-07: el encargado solo crea instalaciones de su propia organizacion.
+        data["organization_id"] = staff.organization_id
+    facility = await FacilityService(session).create(data)
     return FacilityDetailResponse.model_validate(facility)
 
 
@@ -321,9 +331,17 @@ async def update_facility(
     facility_id: UUID,
     payload: FacilityUpdate,
     session: SessionDep,
-    staff: AdminUser,
+    staff: CatalogStaffUser,
 ) -> FacilityDetailResponse:
-    facility = await FacilityService(session).update(
+    service = FacilityService(session)
+    if staff.role == UserRole.ENCARGADO:
+        # Verifica pertenencia antes de editar: otro tenant responde 404.
+        await service.get(
+            facility_id,
+            organization_id=staff.organization_id,
+            include_inactive=True,
+        )
+    facility = await service.update(
         facility_id, payload.model_dump(exclude_unset=True)
     )
     return FacilityDetailResponse.model_validate(facility)

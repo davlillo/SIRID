@@ -26,7 +26,7 @@ import type { Facility, FacilityKind, SportType, Zone } from "@/lib/types";
 export default function AdminFacilitiesPage() {
   const facilities = useAdminFacilities();
   const organizations = useAdminOrganizations();
-  const { canManageCatalog } = useAuth();
+  const { canManageCatalog, isAdmin, user } = useAuth();
   const [editing, setEditing] = useState<Facility | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -64,7 +64,7 @@ export default function AdminFacilitiesPage() {
             <caption className="sr-only">Instalaciones del complejo</caption>
             <thead>
               <tr className="bg-charcoal text-ivory">
-                {["Nombre", "Organización", "Zona", "Tipo", "Cap.", "Estado"].map((head) => (
+                {["Nombre", ...(isAdmin ? ["Organización"] : []), "Zona", "Tipo", "Cap.", "Estado"].map((head) => (
                   <th
                     key={head}
                     scope="col"
@@ -90,9 +90,11 @@ export default function AdminFacilitiesPage() {
                   }
                 >
                   <td className="px-3 py-2.5 font-medium">{facility.name}</td>
-                  <td className="px-3 py-2.5">
-                    {organizations.data?.find((item) => item.id === facility.organization_id)?.name ?? "—"}
-                  </td>
+                  {isAdmin ? (
+                    <td className="px-3 py-2.5">
+                      {organizations.data?.find((item) => item.id === facility.organization_id)?.name ?? "—"}
+                    </td>
+                  ) : null}
                   <td className="px-3 py-2.5">{ZONE_LABEL[facility.zone]}</td>
                   <td className="px-3 py-2.5">{KIND_LABEL[facility.facility_kind]}</td>
                   <td className="px-3 py-2.5 font-mono">{facility.capacity}</td>
@@ -117,22 +119,26 @@ export default function AdminFacilitiesPage() {
           {creating && canManageCatalog ? (
             <FacilityForm
               organizations={organizations.data ?? []}
+              fixedOrganizationId={user?.organization_id}
               onDone={() => setCreating(false)}
             />
           ) : editing ? (
             <>
               {canManageCatalog ? (
+                <FacilityForm
+                  key={editing.id}
+                  facility={editing}
+                  organizations={organizations.data ?? []}
+                  fixedOrganizationId={user?.organization_id}
+                  onDone={() => setEditing(null)}
+                />
+              ) : null}
+              {isAdmin ? (
                 <>
-                  <FacilityForm
-                    key={editing.id}
-                    facility={editing}
-                    organizations={organizations.data ?? []}
-                    onDone={() => setEditing(null)}
-                  />
                   <ScheduleEditor key={`schedule-${editing.id}`} facility={editing} />
+                  <RateForm key={`rate-${editing.id}`} facility={editing} />
                 </>
               ) : null}
-              <RateForm key={`rate-${editing.id}`} facility={editing} />
             </>
           ) : (
             <aside className="border border-dashed border-charcoal/25 p-6">
@@ -152,17 +158,19 @@ export default function AdminFacilitiesPage() {
 function FacilityForm({
   facility,
   organizations,
+  fixedOrganizationId,
   onDone,
 }: {
   facility?: Facility;
   organizations: { id: string; name: string; is_active: boolean }[];
+  fixedOrganizationId?: string;
   onDone: () => void;
 }) {
   const save = useSaveFacility();
   const isEdit = Boolean(facility);
 
   const [form, setForm] = useState({
-    organization_id: facility?.organization_id ?? "",
+    organization_id: facility?.organization_id ?? fixedOrganizationId ?? "",
     slug: facility?.slug ?? "",
     name: facility?.name ?? "",
     description: facility?.description ?? "",
@@ -174,10 +182,6 @@ function FacilityForm({
     surface: facility?.surface ?? "",
     is_bookable: facility?.is_bookable ?? true,
     is_active: facility?.is_active ?? true,
-    map_x: facility?.map_x ?? "",
-    map_z: facility?.map_z ?? "",
-    map_width: facility?.map_width ?? "",
-    map_depth: facility?.map_depth ?? "",
   });
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
@@ -197,11 +201,6 @@ function FacilityForm({
       surface: form.surface || null,
       is_bookable: form.is_bookable,
       is_active: form.is_active,
-      map_x: form.map_x || null,
-      map_y: "0",
-      map_z: form.map_z || null,
-      map_width: form.map_width || null,
-      map_depth: form.map_depth || null,
     };
     if (!isEdit) {
       body.organization_id = form.organization_id;
@@ -217,7 +216,7 @@ function FacilityForm({
       <TechnicalLabel>{isEdit ? "EDITAR INSTALACION" : "NUEVA INSTALACION"}</TechnicalLabel>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        {!isEdit ? (
+        {!isEdit && !fixedOrganizationId ? (
           <Field label="Organización" htmlFor="fa-organization" className="sm:col-span-2">
             <Select
               id="fa-organization"
@@ -344,25 +343,6 @@ function FacilityForm({
             placeholder="SYNTHETIC_GRASS"
           />
         </Field>
-
-        <fieldset className="sm:col-span-2">
-          <legend className="font-mono text-[10px] uppercase tracking-[0.16em] text-olive">
-            Coordenadas del plano 3D
-          </legend>
-          <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {(["map_x", "map_z", "map_width", "map_depth"] as const).map((key) => (
-              <Field key={key} label={key.replace("map_", "")} htmlFor={`fa-${key}`}>
-                <Input
-                  id={`fa-${key}`}
-                  type="number"
-                  step="0.5"
-                  value={form[key] ?? ""}
-                  onChange={(event) => update(key, event.target.value)}
-                />
-              </Field>
-            ))}
-          </div>
-        </fieldset>
 
         <label className="flex items-center gap-2 text-sm">
           <input

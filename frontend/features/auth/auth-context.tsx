@@ -91,7 +91,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLoading: session.isPending,
       isAdmin: session.data?.role === "ADMIN",
       isReservationManager: session.data?.role === "ENCARGADO",
-      canManageCatalog: session.data?.role === "ADMIN",
+      canManageCatalog:
+        session.data?.role === "ADMIN" || session.data?.role === "ENCARGADO",
       loginWithGoogle: async (credential: string) => {
         await login.mutateAsync(credential);
       },

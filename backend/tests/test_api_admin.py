@@ -6,9 +6,14 @@ from datetime import datetime, time, timedelta
 import pytest
 from app.core.config import settings
 from app.domain.enums import ReservationStatus
-from app.infrastructure.models import ReservationModel
+from app.infrastructure.models import OrganizationModel, ReservationModel
 
-from tests.conftest import TEST_ORGANIZATION_ID, authenticate, requires_database
+from tests.conftest import (
+    TEST_ORGANIZATION_ID,
+    authenticate,
+    make_facility,
+    requires_database,
+)
 
 pytestmark = requires_database
 
@@ -62,7 +67,10 @@ class TestPermissions:
     async def test_an_anonymous_visitor_cannot_reach_admin(self, client):
         assert (await client.get("/v1/admin/stats")).status_code == 401
 
-    async def test_an_encargado_cannot_manage_facilities(self, client, encargado):
+    async def test_an_encargado_creates_a_facility_in_its_own_organization(
+        self, client, encargado
+    ):
+        """HU-07: el encargado registra instalaciones de su organizacion."""
         authenticate(client, encargado)
 
         response = await client.post(
@@ -80,7 +88,57 @@ class TestPermissions:
             },
         )
 
-        assert response.status_code == 403
+        assert response.status_code == 201
+        assert response.json()["organization_id"] == str(TEST_ORGANIZATION_ID)
+
+    async def test_an_encargado_creates_only_in_its_own_organization(
+        self, client, encargado
+    ):
+        """El organization_id del cuerpo se ignora: manda la organizacion del actor."""
+        other = uuid.uuid4()
+        authenticate(client, encargado)
+
+        response = await client.post(
+            "/v1/admin/facilities",
+            json={
+                "organization_id": str(other),
+                "slug": "cancha-forzada",
+                "name": "Cancha Forzada",
+                "description": "Intento de crear en una organizacion ajena.",
+                "sport_type": "FOOTBALL_5",
+                "facility_kind": "FIELD",
+                "zone": "FUTBOL",
+                "capacity": 10,
+                "location_label": "Zona Futbol",
+            },
+        )
+
+        assert response.status_code == 201
+        assert response.json()["organization_id"] == str(TEST_ORGANIZATION_ID)
+
+    async def test_an_encargado_cannot_edit_another_organization_facility(
+        self, client, db_session, encargado
+    ):
+        other_org_id = uuid.UUID("00000000-0000-0000-0000-0000000000b2")
+        db_session.add(
+            OrganizationModel(
+                id=other_org_id,
+                slug="organizacion-b",
+                name="Organización B",
+                email_domain="org-b.example.com",
+            )
+        )
+        await db_session.commit()
+        foreign = await make_facility(
+            db_session, "cancha-org-b", "Cancha Org B", organization_id=other_org_id
+        )
+        authenticate(client, encargado)
+
+        response = await client.patch(
+            f"/v1/admin/facilities/{foreign.id}", json={"is_active": False}
+        )
+
+        assert response.status_code == 404
 
     async def test_an_admin_cannot_access_reservations_or_stats(self, client, admin):
         authenticate(client, admin)

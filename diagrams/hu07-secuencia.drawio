@@ -1,0 +1,82 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="HU-07 Secuencia">
+    <mxGraphModel dx="1200" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1120" pageHeight="1240" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="p1" value="Encargado / Administrador" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=36;" vertex="1" parent="1">
+          <mxGeometry x="30" y="40" width="150" height="1100" as="geometry"/>
+        </mxCell>
+        <mxCell id="p2" value="Cliente" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=36;" vertex="1" parent="1">
+          <mxGeometry x="200" y="40" width="150" height="1100" as="geometry"/>
+        </mxCell>
+        <mxCell id="p3" value="Frontend (Next.js)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=36;" vertex="1" parent="1">
+          <mxGeometry x="370" y="40" width="150" height="1100" as="geometry"/>
+        </mxCell>
+        <mxCell id="p4" value="API FastAPI" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=36;" vertex="1" parent="1">
+          <mxGeometry x="540" y="40" width="150" height="1100" as="geometry"/>
+        </mxCell>
+        <mxCell id="p5" value="FacilityService" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=36;" vertex="1" parent="1">
+          <mxGeometry x="710" y="40" width="150" height="1100" as="geometry"/>
+        </mxCell>
+        <mxCell id="p6" value="PostgreSQL" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;size=36;" vertex="1" parent="1">
+          <mxGeometry x="880" y="40" width="150" height="1100" as="geometry"/>
+        </mxCell>
+        <mxCell id="m1" value="Completar formulario de instalacion" style="html=1;endArrow=block;endFill=1;exitX=0.5;exitY=0.100;entryX=0.5;entryY=0.100;" edge="1" parent="1" source="p1" target="p3">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="m2" value="POST /v1/admin/facilities" style="html=1;endArrow=block;endFill=1;exitX=0.5;exitY=0.145;entryX=0.5;entryY=0.145;" edge="1" parent="1" source="p3" target="p4">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="m3" value="create(payload)" style="html=1;endArrow=block;endFill=1;exitX=0.5;exitY=0.191;entryX=0.5;entryY=0.191;" edge="1" parent="1" source="p4" target="p5">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="m4" value="INSERT INTO facilities" style="html=1;endArrow=block;endFill=1;exitX=0.5;exitY=0.236;entryX=0.5;entryY=0.236;" edge="1" parent="1" source="p5" target="p6">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="m5" value="fila creada" style="html=1;endArrow=open;dashed=1;endFill=0;exitX=0.5;exitY=0.282;entryX=0.5;entryY=0.282;" edge="1" parent="1" source="p6" target="p5">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="m6" value="Facility" style="html=1;endArrow=open;dashed=1;endFill=0;exitX=0.5;exitY=0.327;entryX=0.5;entryY=0.327;" edge="1" parent="1" source="p5" target="p4">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="m7" value="201 FacilityDetailResponse" style="html=1;endArrow=open;dashed=1;endFill=0;exitX=0.5;exitY=0.373;entryX=0.5;entryY=0.373;" edge="1" parent="1" source="p4" target="p3">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="m8" value="Confirmacion en pantalla" style="html=1;endArrow=open;dashed=1;endFill=0;exitX=0.5;exitY=0.418;entryX=0.5;entryY=0.418;" edge="1" parent="1" source="p3" target="p1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="m9" value="Desmarcar 'Activa en el catalogo'" style="html=1;endArrow=block;endFill=1;exitX=0.5;exitY=0.482;entryX=0.5;entryY=0.482;" edge="1" parent="1" source="p1" target="p3">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="m10" value="PATCH /v1/admin/facilities/{id} is_active=false" style="html=1;endArrow=block;endFill=1;exitX=0.5;exitY=0.527;entryX=0.5;entryY=0.527;" edge="1" parent="1" source="p3" target="p4">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="m11" value="update(is_active=false)" style="html=1;endArrow=block;endFill=1;exitX=0.5;exitY=0.573;entryX=0.5;entryY=0.573;" edge="1" parent="1" source="p4" target="p5">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="m12" value="UPDATE facilities SET is_active = false" style="html=1;endArrow=block;endFill=1;exitX=0.5;exitY=0.618;entryX=0.5;entryY=0.618;" edge="1" parent="1" source="p5" target="p6">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="m13" value="200 OK" style="html=1;endArrow=open;dashed=1;endFill=0;exitX=0.5;exitY=0.664;entryX=0.5;entryY=0.664;" edge="1" parent="1" source="p4" target="p3">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="m14" value="POST /v1/reservations" style="html=1;endArrow=block;endFill=1;exitX=0.5;exitY=0.727;entryX=0.5;entryY=0.727;" edge="1" parent="1" source="p2" target="p4">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="m15" value="require_bookable(facility_id)" style="html=1;endArrow=block;endFill=1;exitX=0.5;exitY=0.773;entryX=0.5;entryY=0.773;" edge="1" parent="1" source="p4" target="p5">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="m16" value="SELECT facility WHERE is_active" style="html=1;endArrow=block;endFill=1;exitX=0.5;exitY=0.818;entryX=0.5;entryY=0.818;" edge="1" parent="1" source="p5" target="p6">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="m17" value="0 filas" style="html=1;endArrow=open;dashed=1;endFill=0;exitX=0.5;exitY=0.864;entryX=0.5;entryY=0.864;" edge="1" parent="1" source="p6" target="p5">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="m18" value="404 facility-not-found" style="html=1;endArrow=open;dashed=1;endFill=0;exitX=0.5;exitY=0.909;entryX=0.5;entryY=0.909;" edge="1" parent="1" source="p4" target="p2">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
