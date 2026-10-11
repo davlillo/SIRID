@@ -10,7 +10,6 @@ import { cn } from "@/lib/cn";
 const LINKS = [
   { href: "/organizaciones", label: "Organizaciones" },
   { href: "/instalaciones", label: "Instalaciones" },
-  { href: "/mapa", label: "Mapa" },
 ];
 
 export function SiteHeader({ organizationSlug }: { organizationSlug?: string }) {

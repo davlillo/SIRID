@@ -14,7 +14,7 @@ SIRID ahora puede alojar varias organizaciones con catálogo y reservas separado
 | Rol | Alcance |
 |---|---|
 | `ADMIN` | Crea y administra organizaciones y usuarios; administra instalaciones, horarios y tarifas de todas las organizaciones. No consulta ni gestiona reservas. |
-| `ENCARGADO` | Gestiona reservas solo de la organización asociada a su cuenta. Puede consultar su catálogo para atenderlas. |
+| `ENCARGADO` | Gestiona las instalaciones (HU-07) y las reservas de la organización asociada a su cuenta. |
 | `CLIENT` | Consulta instalaciones públicas y crea/consulta/cancela sus propias reservas dentro de su organización. |
 | Visitante | Consulta instalaciones y disponibilidad pública de la organización seleccionada, sin sesión. |
 

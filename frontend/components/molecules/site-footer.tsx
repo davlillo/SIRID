@@ -24,11 +24,6 @@ export function SiteFooter() {
               </Link>
             </li>
             <li>
-              <Link className="hover:text-terracotta" href="/mapa">
-                Plano del complejo
-              </Link>
-            </li>
-            <li>
               <Link className="hover:text-terracotta" href="/mis-reservas">
                 Mis reservas
               </Link>

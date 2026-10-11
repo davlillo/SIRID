@@ -1,0 +1,9 @@
+# Override local: earth2 ocupa el puerto 8000 en esta maquina.
+# SIRID se expone en 8010 para no tocar ese stack. El frontend sigue en 3000.
+services:
+  backend:
+    ports: !override
+      - "8010:8000"
+  frontend:
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8010/v1
