@@ -33,9 +33,11 @@ export function AvailabilityCalendar({
   selected,
   onSelect,
   isBookable = true,
+  organizationSlug,
 }: {
   facilityId: string;
   date: string;
+  organizationSlug: string;
   selected?: Slot[];
   onSelect?: (slot: Slot) => void;
   isBookable?: boolean;
@@ -43,6 +45,7 @@ export function AvailabilityCalendar({
   const { data, isPending, isError, error, refetch, isFetching } = useAvailability(
     facilityId,
     date,
+    organizationSlug,
   );
 
   if (isPending) return <LoadingBlock label="CONSULTANDO DISPONIBILIDAD" />;

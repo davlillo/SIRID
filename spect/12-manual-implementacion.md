@@ -22,7 +22,8 @@ El comando levanta PostgreSQL, ejecuta `alembic upgrade head` en backend y levan
 URLs iniciales:
 
 - `http://localhost:3000`: landing.
-- `http://localhost:3000/instalaciones`: catalogo base.
+- `http://localhost:3000/organizaciones`: selector público de organizaciones.
+- `http://localhost:3000/instalaciones?organization=<slug>`: catálogo de la organización seleccionada.
 - `http://localhost:3000/mapa`: maqueta 3D.
 - `http://localhost:8000/docs`: OpenAPI.
 - `http://localhost:8000/v1/health`: salud de la API.
@@ -38,6 +39,15 @@ URLs iniciales:
 7. En produccion agregar un dominio HTTPS real.
 
 El backend siempre debe verificar el token. Nunca se debe aceptar el email o rol enviado directamente por el navegador.
+
+## 3.1 Organizaciones y roles
+
+- La migración crea una organización bootstrap genérica, inicialmente inactiva, y asigna ahí los datos existentes.
+- El administrador de bootstrap se identifica con `ADMIN_EMAILS`; su cuenta puede usar cualquier dominio.
+- El administrador inicia sesión con Google y renombra/configura la organización inicial o crea nuevas organizaciones desde `/admin/organizaciones`.
+- Desde `/admin/usuarios`, provisiona los encargados y clientes con su organización/rol. Los usuarios vinculan su cuenta de Google al correo provisionado.
+- Los catálogos públicos se consultan con el slug de cada organización y son accesibles sin sesión. Reservar requiere iniciar sesión y pertenecer a la organización de la instalación.
+- ADMIN puede gestionar instalaciones/horarios/tarifas de cualquier organización. Solo ENCARGADO puede gestionar reservas, dentro de su organización.
 
 ## 4. Configurar Gmail SMTP
 

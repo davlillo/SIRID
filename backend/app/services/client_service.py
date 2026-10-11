@@ -6,9 +6,16 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.domain.enums import UserRole
-from app.domain.errors import ClientDuiTaken, ClientEmailTaken, ClientNotFound
+from app.domain.errors import (
+    ClientDuiTaken,
+    ClientEmailTaken,
+    ClientNotFound,
+    OrganizationNotFound,
+)
 from app.infrastructure.models import UserModel
+from app.repositories.organization_repository import OrganizationRepository
 from app.repositories.user_repository import UserRepository
 
 DUI_TAKEN = "Ya existe un cliente registrado con este DUI."
@@ -19,11 +26,37 @@ class ClientService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
         self.users = UserRepository(session)
+        self.organizations = OrganizationRepository(session)
 
     async def create(self, payload: dict) -> UserModel:
         dui = payload["dui"].strip()
         email = payload["email"].strip().lower()
-        await self._assert_unique(dui=dui, email=email)
+        if email in settings.admin_email_set:
+            raise ClientEmailTaken(
+                "This email is reserved for the system administrator."
+            )
+        organization = await self.organizations.get_by_id(payload["organization_id"])
+        if organization is None or not organization.is_active:
+            raise OrganizationNotFound("The requested organization does not exist.")
+        existing = await self.users.get_by_email(email)
+        if existing is not None:
+            if (
+                existing.organization_id != organization.id
+                or existing.role != UserRole.CLIENT
+                or existing.dui is not None
+            ):
+                raise ClientEmailTaken(EMAIL_TAKEN)
+            await self._assert_unique(dui=dui, email=None)
+            existing.first_name = payload["first_name"].strip()
+            existing.last_name = payload["last_name"].strip()
+            existing.name = f"{existing.first_name} {existing.last_name}"
+            existing.dui = dui
+            existing.phone = payload["phone"].strip()
+            await self._commit()
+            await self.session.refresh(existing)
+            return existing
+
+        await self._assert_unique(dui=dui, email=None)
 
         first_name = payload["first_name"].strip()
         last_name = payload["last_name"].strip()
@@ -31,6 +64,7 @@ class ClientService:
         user = self.users.add(
             UserModel(
                 id=client_id,
+                organization_id=payload["organization_id"],
                 # Se reemplaza por el subject real cuando el cliente entre con Google
                 # usando este mismo correo.
                 google_subject=f"manual:{client_id}",

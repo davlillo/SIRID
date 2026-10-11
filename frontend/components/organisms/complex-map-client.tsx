@@ -18,7 +18,13 @@ const ComplexMap3D = dynamic(
   { ssr: false, loading: () => <LoadingBlock label="CARGANDO PLANO 3D" /> },
 );
 
-export function ComplexMapClient({ facilities }: { facilities: Facility[] }) {
+export function ComplexMapClient({
+  facilities,
+  organizationSlug,
+}: {
+  facilities: Facility[];
+  organizationSlug: string;
+}) {
   if (facilities.length === 0) {
     return (
       <p className="border border-dashed border-charcoal/30 px-6 py-10 text-center text-sm text-charcoal/60">
@@ -32,8 +38,8 @@ export function ComplexMapClient({ facilities }: { facilities: Facility[] }) {
     typeof window !== "undefined" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches
   ) {
-    return <MapFallback facilities={facilities} />;
+      return <MapFallback facilities={facilities} organizationSlug={organizationSlug} />;
   }
 
-  return <ComplexMap3D facilities={facilities} />;
+  return <ComplexMap3D facilities={facilities} organizationSlug={organizationSlug} />;
 }

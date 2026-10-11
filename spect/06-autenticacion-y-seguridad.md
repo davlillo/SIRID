@@ -4,18 +4,21 @@
 
 1. Google entrega un ID token al frontend.
 2. FastAPI verifica firma, audiencia, expiracion y email verificado.
-3. El usuario se crea o actualiza por `google_subject`.
+3. El usuario se busca por `google_subject` o se vincula por email verificado a una cuenta provisionada. Una cuenta nueva solo se asocia automáticamente si su dominio corresponde a una organización activa.
 4. El backend firma una sesion propia.
 5. La sesion viaja en cookie `HttpOnly`, `SameSite=Lax` y `Secure` en produccion.
 
-El frontend no debe confiar en un rol recibido desde el navegador. Cada endpoint protegido consulta la sesion y valida el rol en backend.
+El frontend no debe confiar en un rol u organización recibidos desde el navegador. El rol y `organization_id` se leen del usuario persistido y cada endpoint protegido valida ambos en backend.
 
 ## Autorizacion
 
-- `CLIENT`: catalogo, disponibilidad, creacion y operaciones sobre sus reservas.
-- `ADMIN`: todas las operaciones administrativas.
+- `CLIENT`: catálogo público por organización; crea/consulta/cancela sus propias reservas dentro de `users.organization_id`.
+- `ENCARGADO`: gestiona reservas de su organización; no administra organizaciones ni el catálogo.
+- `ADMIN`: gestiona organizaciones y usuarios globalmente, y administra instalaciones, horarios y tarifas de cualquier organización. No consulta ni opera reservas.
 - La autorizacion se verifica en el servicio, no solamente en el router.
 - Los recursos ajenos deben responder `404` o `403` de forma consistente sin filtrar informacion.
+- El scope de instalaciones públicas se resuelve por slug de organización; las reservas autenticadas se filtran por `organization_id` derivado del usuario.
+- Constraints/FKs compuestas impiden que una reserva mezcle cliente, instalación y organización.
 
 ## Protecciones
 
@@ -35,6 +38,7 @@ El frontend no debe confiar en un rol recibido desde el navegador. Cada endpoint
 |---|---|
 | Reserva doble | Constraint exclusion transaccional |
 | IDOR | Verificacion de propietario en servicio |
+| Fuga entre organizaciones | Filtros de tenant en repositorios y FKs compuestas en PostgreSQL |
 | Token falso | Verificacion oficial de Google |
 | SMTP expuesto | Secretos fuera del repositorio |
 | XSS | Escape por defecto de React y validacion |

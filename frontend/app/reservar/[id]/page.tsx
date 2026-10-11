@@ -5,7 +5,10 @@ import { ApiError, facilitiesApi } from "@/lib/api";
 
 export const metadata: Metadata = { title: "Reservar" };
 
-type Params = { params: Promise<{ id: string }> };
+type Params = {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ organization?: string }>;
+};
 
 /**
  * Entrada por id de instalacion.
@@ -13,12 +16,14 @@ type Params = { params: Promise<{ id: string }> };
  * El flujo de reserva vive en el detalle para no duplicarlo: tanto el catalogo
  * como el plano terminan en la misma pantalla (spect/07-flujos-de-interfaz.md).
  */
-export default async function ReservePage({ params }: Params) {
+export default async function ReservePage({ params, searchParams }: Params) {
   const { id } = await params;
+  const { organization } = await searchParams;
+  if (!organization) redirect("/organizaciones");
 
   try {
-    const facility = await facilitiesApi.byId(id);
-    redirect(`/instalaciones/${facility.slug}#contenido`);
+    const facility = await facilitiesApi.byIdForOrganization(organization, id);
+    redirect(`/instalaciones/${facility.slug}?organization=${encodeURIComponent(organization)}#contenido`);
   } catch (error) {
     if (error instanceof ApiError) notFound();
     throw error;

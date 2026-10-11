@@ -60,10 +60,13 @@ docker compose exec backend alembic revision -m "describe_change"
 Ver `.env.example` en la raiz. Sin `GOOGLE_CLIENT_ID` el login queda deshabilitado; sin
 credenciales SMTP los correos se registran como `SKIPPED` y el sistema sigue funcionando.
 
-`ADMIN_EMAILS` es una lista separada por comas: esos correos reciben rol `ADMIN` al iniciar
-sesion. La promocion viene de la configuracion del servidor, nunca del navegador.
-`ENCARGADO_EMAILS` funciona igual para el rol `ENCARGADO`, limitado al registro de
-clientes y la gestion de tarifas. Si un correo aparece en ambas listas, prevalece `ADMIN`.
+`ADMIN_EMAILS` es una lista separada por comas que configura la cuenta de bootstrap del
+administrador del sistema. Los roles de clientes y encargados se asignan desde el panel; no se
+aceptan roles del navegador. Cada cuenta queda ligada a una organización.
+
+El administrador gestiona organizaciones, usuarios e instalaciones de todas ellas. Los
+encargados pueden gestionar reservas únicamente dentro de su organización; el administrador no
+tiene acceso a las reservas.
 
 ## Notas de implementacion
 

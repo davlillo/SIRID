@@ -19,7 +19,9 @@ class ScheduleEntry(BaseModel):
     weekday: int = Field(ge=0, le=6, description="Lunes = 0, domingo = 6")
     opens_at: time
     closes_at: time = Field(description="00:00 significa cierre a medianoche")
-    slot_minutes: int = Field(default=60, description="Duracion de cada bloque de prestamo")
+    slot_minutes: int = Field(
+        default=60, description="Duracion de cada bloque de prestamo"
+    )
     is_active: bool = True
 
 
@@ -65,6 +67,7 @@ class FacilityResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    organization_id: UUID
     slug: str
     name: str
     description: str
@@ -93,7 +96,10 @@ class FacilityDetailResponse(FacilityResponse):
 
 
 class FacilityCreate(BaseModel):
-    slug: str = Field(min_length=3, max_length=120, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    organization_id: UUID
+    slug: str = Field(
+        min_length=3, max_length=120, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    )
     name: str = Field(min_length=2, max_length=160)
     description: str = Field(min_length=10, max_length=4000)
     sport_type: SportType

@@ -28,11 +28,21 @@ class ReservationRepository:
         self.session.add(log)
         return log
 
-    async def get_by_id(self, reservation_id: UUID) -> ReservationModel | None:
-        return await self.session.get(ReservationModel, reservation_id)
+    async def get_by_id(
+        self, reservation_id: UUID, *, organization_id: UUID | None = None
+    ) -> ReservationModel | None:
+        query = select(ReservationModel).where(ReservationModel.id == reservation_id)
+        if organization_id is not None:
+            query = query.where(ReservationModel.organization_id == organization_id)
+        return await self.session.scalar(query)
 
     async def active_in_period(
-        self, facility_id: UUID, starts_at: datetime, ends_at: datetime
+        self,
+        facility_id: UUID,
+        starts_at: datetime,
+        ends_at: datetime,
+        *,
+        organization_id: UUID,
     ) -> list[ReservationModel]:
         """Reservas activas que se cruzan con `[starts_at, ends_at)` (RN-01/RN-03).
 
@@ -42,6 +52,7 @@ class ReservationRepository:
         rows = await self.session.scalars(
             select(ReservationModel).where(
                 ReservationModel.facility_id == facility_id,
+                ReservationModel.organization_id == organization_id,
                 ReservationModel.status.in_(tuple(ACTIVE_RESERVATION_STATUSES)),
                 ReservationModel.starts_at < ends_at,
                 ReservationModel.ends_at > starts_at,
@@ -50,14 +61,25 @@ class ReservationRepository:
         return list(rows.unique().all())
 
     async def list_for_customer(
-        self, customer_id: UUID, *, page: int = 1, limit: int = 20
+        self,
+        customer_id: UUID,
+        *,
+        organization_id: UUID,
+        page: int = 1,
+        limit: int = 20,
     ) -> tuple[list[ReservationModel], int]:
-        query = select(ReservationModel).where(ReservationModel.customer_id == customer_id)
-        return await self._paginate(query.order_by(ReservationModel.starts_at.desc()), page, limit)
+        query = select(ReservationModel).where(
+            ReservationModel.customer_id == customer_id,
+            ReservationModel.organization_id == organization_id,
+        )
+        return await self._paginate(
+            query.order_by(ReservationModel.starts_at.desc()), page, limit
+        )
 
     async def list_for_admin(
         self,
         *,
+        organization_id: UUID,
         status: ReservationStatus | None = None,
         facility_id: UUID | None = None,
         date_from: datetime | None = None,
@@ -65,7 +87,9 @@ class ReservationRepository:
         page: int = 1,
         limit: int = 20,
     ) -> tuple[list[ReservationModel], int]:
-        query = select(ReservationModel)
+        query = select(ReservationModel).where(
+            ReservationModel.organization_id == organization_id
+        )
         if status is not None:
             query = query.where(ReservationModel.status == status)
         if facility_id is not None:
@@ -74,20 +98,27 @@ class ReservationRepository:
             query = query.where(ReservationModel.starts_at >= date_from)
         if date_to is not None:
             query = query.where(ReservationModel.starts_at < date_to)
-        return await self._paginate(query.order_by(ReservationModel.starts_at.asc()), page, limit)
+        return await self._paginate(
+            query.order_by(ReservationModel.starts_at.asc()), page, limit
+        )
 
-    async def count_by_status(self, status: ReservationStatus) -> int:
+    async def count_by_status(
+        self, status: ReservationStatus, *, organization_id: UUID
+    ) -> int:
         return int(
             await self.session.scalar(
                 select(func.count())
                 .select_from(ReservationModel)
-                .where(ReservationModel.status == status)
+                .where(
+                    ReservationModel.status == status,
+                    ReservationModel.organization_id == organization_id,
+                )
             )
             or 0
         )
 
     async def summary_between(
-        self, starts_at: datetime, ends_at: datetime
+        self, starts_at: datetime, ends_at: datetime, *, organization_id: UUID
     ) -> tuple[int, float]:
         """Reservas activas del periodo y su importe cotizado."""
         row = (
@@ -99,25 +130,36 @@ class ReservationRepository:
                     ReservationModel.status.in_(tuple(ACTIVE_RESERVATION_STATUSES)),
                     ReservationModel.starts_at >= starts_at,
                     ReservationModel.starts_at < ends_at,
+                    ReservationModel.organization_id == organization_id,
                 )
             )
         ).one()
         return int(row[0]), float(row[1])
 
     async def list_notification_logs(
-        self, reservation_id: UUID
+        self, reservation_id: UUID, *, organization_id: UUID
     ) -> list[NotificationLogModel]:
         rows = await self.session.scalars(
             select(NotificationLogModel)
-            .where(NotificationLogModel.reservation_id == reservation_id)
+            .join(ReservationModel)
+            .where(
+                NotificationLogModel.reservation_id == reservation_id,
+                ReservationModel.organization_id == organization_id,
+            )
             .order_by(NotificationLogModel.created_at.desc())
         )
         return list(rows.all())
 
-    async def list_events(self, reservation_id: UUID) -> list[ReservationEventModel]:
+    async def list_events(
+        self, reservation_id: UUID, *, organization_id: UUID
+    ) -> list[ReservationEventModel]:
         rows = await self.session.scalars(
             select(ReservationEventModel)
-            .where(ReservationEventModel.reservation_id == reservation_id)
+            .join(ReservationModel)
+            .where(
+                ReservationEventModel.reservation_id == reservation_id,
+                ReservationModel.organization_id == organization_id,
+            )
             .order_by(ReservationEventModel.created_at.asc())
         )
         return list(rows.all())

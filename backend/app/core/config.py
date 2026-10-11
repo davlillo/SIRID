@@ -29,12 +29,12 @@ class Settings(BaseSettings):
     smtp_app_password: str = ""
     smtp_from: str = ""
 
-    # Correos que reciben rol ADMIN la primera vez que inician sesion.
+    # Cuenta(s) de bootstrap para el administrador del sistema.
     admin_emails: str = ""
-    # Correos que registran clientes y gestionan tarifas.
-    encargado_emails: str = ""
 
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", case_sensitive=False, extra="ignore"
+    )
 
     @property
     def is_production(self) -> bool:
@@ -47,14 +47,8 @@ class Settings(BaseSettings):
     @cached_property
     def admin_email_set(self) -> frozenset[str]:
         return frozenset(
-            email.strip().lower() for email in self.admin_emails.split(",") if email.strip()
-        )
-
-    @cached_property
-    def encargado_email_set(self) -> frozenset[str]:
-        return frozenset(
             email.strip().lower()
-            for email in self.encargado_emails.split(",")
+            for email in self.admin_emails.split(",")
             if email.strip()
         )
 

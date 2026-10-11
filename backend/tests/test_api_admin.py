@@ -4,11 +4,11 @@ import uuid
 from datetime import datetime, time, timedelta
 
 import pytest
-
 from app.core.config import settings
 from app.domain.enums import ReservationStatus
 from app.infrastructure.models import ReservationModel
-from tests.conftest import authenticate, requires_database
+
+from tests.conftest import TEST_ORGANIZATION_ID, authenticate, requires_database
 
 pytestmark = requires_database
 
@@ -16,7 +16,10 @@ pytestmark = requires_database
 def slot_at(hour: int, days_ahead: int = 1) -> dict:
     day = datetime.now(settings.timezone).date() + timedelta(days=days_ahead)
     start = datetime.combine(day, time(hour, 0), tzinfo=settings.timezone)
-    return {"starts_at": start.isoformat(), "ends_at": (start + timedelta(hours=1)).isoformat()}
+    return {
+        "starts_at": start.isoformat(),
+        "ends_at": (start + timedelta(hours=1)).isoformat(),
+    }
 
 
 async def a_pending_reservation(client, customer, facility) -> dict:
@@ -28,7 +31,9 @@ async def a_pending_reservation(client, customer, facility) -> dict:
 
 
 class TestPermissions:
-    async def test_a_client_cannot_list_admin_reservations(self, client, customer, facility):
+    async def test_a_client_cannot_list_admin_reservations(
+        self, client, customer, facility
+    ):
         authenticate(client, customer)
 
         assert (await client.get("/v1/admin/reservations")).status_code == 403
@@ -40,6 +45,7 @@ class TestPermissions:
         response = await client.post(
             "/v1/admin/facilities",
             json={
+                "organization_id": str(TEST_ORGANIZATION_ID),
                 "slug": "cancha-pirata",
                 "name": "Cancha Pirata",
                 "description": "Intento de creacion sin permisos administrativos.",
@@ -56,12 +62,13 @@ class TestPermissions:
     async def test_an_anonymous_visitor_cannot_reach_admin(self, client):
         assert (await client.get("/v1/admin/stats")).status_code == 401
 
-    async def test_an_encargado_can_manage_facilities(self, client, encargado):
+    async def test_an_encargado_cannot_manage_facilities(self, client, encargado):
         authenticate(client, encargado)
 
         response = await client.post(
             "/v1/admin/facilities",
             json={
+                "organization_id": str(TEST_ORGANIZATION_ID),
                 "slug": "cancha-del-encargado",
                 "name": "Cancha del Encargado",
                 "description": "Instalacion creada por el encargado del catalogo.",
@@ -73,59 +80,71 @@ class TestPermissions:
             },
         )
 
-        assert response.status_code == 201
+        assert response.status_code == 403
 
-    async def test_an_encargado_cannot_access_reservations_or_stats(
-        self, client, encargado
-    ):
-        authenticate(client, encargado)
+    async def test_an_admin_cannot_access_reservations_or_stats(self, client, admin):
+        authenticate(client, admin)
 
         assert (await client.get("/v1/admin/reservations")).status_code == 403
         assert (await client.get("/v1/admin/stats")).status_code == 403
 
+    async def test_an_encargado_can_access_organization_reservations_and_stats(
+        self, client, encargado
+    ):
+        authenticate(client, encargado)
+
+        assert (await client.get("/v1/admin/reservations")).status_code == 200
+        assert (await client.get("/v1/admin/stats")).status_code == 200
+
 
 class TestLifecycle:
-    async def test_an_admin_confirms_a_pending_reservation(
-        self, client, customer, admin, facility
+    async def test_an_encargado_confirms_a_pending_reservation(
+        self, client, customer, encargado, facility
     ):
         reservation = await a_pending_reservation(client, customer, facility)
-        authenticate(client, admin)
+        authenticate(client, encargado)
 
-        response = await client.post(f"/v1/admin/reservations/{reservation['id']}/confirm")
+        response = await client.post(
+            f"/v1/admin/reservations/{reservation['id']}/confirm"
+        )
 
         assert response.status_code == 200
         assert response.json()["status"] == "CONFIRMED"
 
     async def test_a_confirmed_reservation_cannot_be_confirmed_again(
-        self, client, customer, admin, facility
+        self, client, customer, encargado, facility
     ):
         """RN-08: una confirmada no vuelve a pendiente ni se reconfirma."""
         reservation = await a_pending_reservation(client, customer, facility)
-        authenticate(client, admin)
+        authenticate(client, encargado)
         await client.post(f"/v1/admin/reservations/{reservation['id']}/confirm")
 
-        response = await client.post(f"/v1/admin/reservations/{reservation['id']}/confirm")
+        response = await client.post(
+            f"/v1/admin/reservations/{reservation['id']}/confirm"
+        )
 
         assert response.status_code == 409
 
     async def test_completing_a_future_reservation_is_rejected(
-        self, client, customer, admin, facility
+        self, client, customer, encargado, facility
     ):
         """RN-09: solo se completa despues de que termine el periodo."""
         reservation = await a_pending_reservation(client, customer, facility)
-        authenticate(client, admin)
+        authenticate(client, encargado)
         await client.post(f"/v1/admin/reservations/{reservation['id']}/confirm")
 
-        response = await client.post(f"/v1/admin/reservations/{reservation['id']}/complete")
+        response = await client.post(
+            f"/v1/admin/reservations/{reservation['id']}/complete"
+        )
 
         assert response.status_code == 409
         assert response.json()["title"] == "Reservation period has not finished"
 
     async def test_completing_a_finished_reservation_is_allowed(
-        self, client, customer, admin, facility, db_session
+        self, client, customer, encargado, facility, db_session
     ):
         reservation = await a_pending_reservation(client, customer, facility)
-        authenticate(client, admin)
+        authenticate(client, encargado)
         await client.post(f"/v1/admin/reservations/{reservation['id']}/confirm")
 
         # Se mueve el periodo al pasado: no hay forma de crearlo asi por la API.
@@ -134,16 +153,18 @@ class TestLifecycle:
         row.ends_at = row.ends_at - timedelta(days=3)
         await db_session.commit()
 
-        response = await client.post(f"/v1/admin/reservations/{reservation['id']}/complete")
+        response = await client.post(
+            f"/v1/admin/reservations/{reservation['id']}/complete"
+        )
 
         assert response.status_code == 200
         assert response.json()["status"] == "COMPLETED"
 
-    async def test_an_admin_cancel_records_the_note(
-        self, client, customer, admin, facility
+    async def test_an_encargado_cancel_records_the_note(
+        self, client, customer, encargado, facility
     ):
         reservation = await a_pending_reservation(client, customer, facility)
-        authenticate(client, admin)
+        authenticate(client, encargado)
 
         response = await client.post(
             f"/v1/admin/reservations/{reservation['id']}/cancel",
@@ -153,11 +174,11 @@ class TestLifecycle:
         assert response.json()["status"] == "CANCELLED"
         assert response.json()["admin_note"] == "Mantenimiento del cesped."
 
-    async def test_the_admin_list_exposes_the_customer(
-        self, client, customer, admin, facility
+    async def test_the_encargado_list_exposes_the_customer(
+        self, client, customer, encargado, facility
     ):
         await a_pending_reservation(client, customer, facility)
-        authenticate(client, admin)
+        authenticate(client, encargado)
 
         response = await client.get("/v1/admin/reservations?status=PENDING")
 
@@ -165,22 +186,27 @@ class TestLifecycle:
         assert response.json()["items"][0]["customer"]["email"] == customer.email
 
     async def test_events_are_recorded_for_each_transition(
-        self, client, customer, admin, facility
+        self, client, customer, encargado, facility
     ):
         reservation = await a_pending_reservation(client, customer, facility)
-        authenticate(client, admin)
+        authenticate(client, encargado)
         await client.post(f"/v1/admin/reservations/{reservation['id']}/confirm")
 
-        response = await client.get(f"/v1/admin/reservations/{reservation['id']}/events")
+        response = await client.get(
+            f"/v1/admin/reservations/{reservation['id']}/events"
+        )
 
-        assert [event["event_type"] for event in response.json()] == ["CREATED", "CONFIRMED"]
+        assert [event["event_type"] for event in response.json()] == [
+            "CREATED",
+            "CONFIRMED",
+        ]
 
-    async def test_notification_failures_are_visible_to_the_admin(
-        self, client, customer, admin, facility
+    async def test_notification_failures_are_visible_to_the_encargado(
+        self, client, customer, encargado, facility
     ):
         """Si SMTP no responde la reserva permanece y el fallo queda registrado."""
         reservation = await a_pending_reservation(client, customer, facility)
-        authenticate(client, admin)
+        authenticate(client, encargado)
 
         response = await client.get(
             f"/v1/admin/reservations/{reservation['id']}/notifications"
@@ -197,6 +223,7 @@ class TestCatalog:
         response = await client.post(
             "/v1/admin/facilities",
             json={
+                "organization_id": str(TEST_ORGANIZATION_ID),
                 "slug": "cancha-nueva",
                 "name": "Cancha Nueva",
                 "description": "Cancha creada desde el panel administrativo.",
@@ -217,6 +244,7 @@ class TestCatalog:
         response = await client.post(
             "/v1/admin/facilities",
             json={
+                "organization_id": str(TEST_ORGANIZATION_ID),
                 "slug": facility.slug,
                 "name": "Duplicada",
                 "description": "Intento de reutilizar un slug existente.",
@@ -235,16 +263,18 @@ class TestCatalog:
     ):
         """RN-10: una instalacion inactiva no aparece como reservable."""
         authenticate(client, admin)
-        await client.patch(f"/v1/admin/facilities/{facility.id}", json={"is_active": False})
+        await client.patch(
+            f"/v1/admin/facilities/{facility.id}", json={"is_active": False}
+        )
 
         public = await client.get("/v1/facilities")
 
         assert all(item["id"] != str(facility.id) for item in public.json()["items"])
 
-    async def test_an_encargado_can_edit_an_inactive_facility(
-        self, client, encargado, facility
+    async def test_an_admin_can_edit_an_inactive_facility(
+        self, client, admin, facility
     ):
-        authenticate(client, encargado)
+        authenticate(client, admin)
         await client.patch(
             f"/v1/admin/facilities/{facility.id}", json={"is_active": False}
         )
@@ -255,9 +285,9 @@ class TestCatalog:
         assert detail.json()["is_active"] is False
 
     async def test_a_facility_out_of_service_cannot_be_reserved(
-        self, client, customer, encargado, facility
+        self, client, customer, admin, facility
     ):
-        authenticate(client, encargado)
+        authenticate(client, admin)
         await client.patch(
             f"/v1/admin/facilities/{facility.id}", json={"is_bookable": False}
         )
@@ -303,9 +333,9 @@ class TestCatalog:
         assert response.status_code == 422
 
     async def test_an_overlap_warns_in_spanish_and_keeps_the_previous_schedule(
-        self, client, encargado, facility
+        self, client, admin, facility
     ):
-        authenticate(client, encargado)
+        authenticate(client, admin)
 
         response = await client.post(
             f"/v1/admin/facilities/{facility.id}/schedules",
@@ -324,10 +354,10 @@ class TestCatalog:
         detail = await client.get(f"/v1/admin/facilities/{facility.id}")
         assert len(detail.json()["schedules"]) == 7
 
-    async def test_an_encargado_saves_split_ranges_with_their_own_duration(
-        self, client, encargado, facility
+    async def test_an_admin_saves_split_ranges_with_their_own_duration(
+        self, client, admin, facility
     ):
-        authenticate(client, encargado)
+        authenticate(client, admin)
 
         response = await client.post(
             f"/v1/admin/facilities/{facility.id}/schedules",
@@ -389,7 +419,9 @@ class TestCatalog:
 
         assert response.status_code == 422
 
-    async def test_a_range_shorter_than_one_block_is_rejected(self, client, admin, facility):
+    async def test_a_range_shorter_than_one_block_is_rejected(
+        self, client, admin, facility
+    ):
         authenticate(client, admin)
 
         response = await client.post(
@@ -418,9 +450,9 @@ class TestCatalog:
 
         assert response.status_code == 403
 
-    async def test_a_saved_schedule_drives_availability(self, client, encargado, facility):
+    async def test_a_saved_schedule_drives_availability(self, client, admin, facility):
         """Criterio 1: lo guardado queda disponible para futuras reservas."""
-        authenticate(client, encargado)
+        authenticate(client, admin)
         day = datetime.now(settings.timezone).date() + timedelta(days=1)
         await client.post(
             f"/v1/admin/facilities/{facility.id}/schedules",
@@ -461,8 +493,8 @@ class TestCatalog:
         assert response.status_code == 201
         assert response.json()["amount"] == "55.00"
 
-    async def test_an_encargado_publishes_a_new_rate_without_changing_old_quotes(
-        self, client, customer, encargado, facility
+    async def test_an_admin_publishes_a_new_rate_without_changing_old_quotes(
+        self, client, customer, admin, facility
     ):
         authenticate(client, customer)
         original = await client.post(
@@ -471,7 +503,7 @@ class TestCatalog:
         )
         assert original.json()["quoted_amount"] == "40.00"
 
-        authenticate(client, encargado)
+        authenticate(client, admin)
         today = datetime.now(settings.timezone).date()
         published = await client.post(
             f"/v1/admin/facilities/{facility.id}/rates/publish",
@@ -491,15 +523,17 @@ class TestCatalog:
             "/v1/reservations",
             json={"facility_id": str(facility.id), **slot_at(19)},
         )
-        original_after_update = await client.get(f"/v1/reservations/{original.json()['id']}")
+        original_after_update = await client.get(
+            f"/v1/reservations/{original.json()['id']}"
+        )
 
         assert updated.json()["quoted_amount"] == "65.00"
         assert original_after_update.json()["quoted_amount"] == "40.00"
 
     async def test_publishing_can_change_the_time_unit_of_the_rate(
-        self, client, encargado, facility
+        self, client, admin, facility
     ):
-        authenticate(client, encargado)
+        authenticate(client, admin)
         today = datetime.now(settings.timezone).date()
 
         published = await client.post(
@@ -516,9 +550,9 @@ class TestCatalog:
         assert published.json()["amount"] == "90.00"
 
     async def test_publishing_keeps_the_time_unit_when_it_is_not_sent(
-        self, client, encargado, facility
+        self, client, admin, facility
     ):
-        authenticate(client, encargado)
+        authenticate(client, admin)
         today = datetime.now(settings.timezone).date()
 
         published = await client.post(
@@ -529,9 +563,9 @@ class TestCatalog:
         assert published.json()["minimum_minutes"] == 60
 
     async def test_publishing_rejects_an_invalid_time_unit_in_spanish(
-        self, client, encargado, facility
+        self, client, admin, facility
     ):
-        authenticate(client, encargado)
+        authenticate(client, admin)
         today = datetime.now(settings.timezone).date()
 
         response = await client.post(
@@ -544,13 +578,16 @@ class TestCatalog:
         )
 
         assert response.status_code == 422
-        assert response.json()["detail"] == "La duración del bloque está fuera del rango permitido."
+        assert (
+            response.json()["detail"]
+            == "La duración del bloque está fuera del rango permitido."
+        )
 
     async def test_publishing_closes_every_overlapping_rate(
-        self, client, customer, encargado, facility
+        self, client, customer, admin, facility
     ):
         today = datetime.now(settings.timezone).date()
-        authenticate(client, encargado)
+        authenticate(client, admin)
         await client.post(
             f"/v1/admin/facilities/{facility.id}/rates",
             json={
@@ -578,10 +615,10 @@ class TestCatalog:
         assert reservation.json()["quoted_amount"] == "65.00"
 
     async def test_stats_count_pending_reservations(
-        self, client, customer, admin, facility
+        self, client, customer, encargado, facility
     ):
         await a_pending_reservation(client, customer, facility)
-        authenticate(client, admin)
+        authenticate(client, encargado)
 
         response = await client.get("/v1/admin/stats")
 
@@ -591,10 +628,10 @@ class TestCatalog:
 
 class TestStatusFilter:
     async def test_filtering_by_status_excludes_others(
-        self, client, customer, admin, facility
+        self, client, customer, encargado, facility
     ):
         reservation = await a_pending_reservation(client, customer, facility)
-        authenticate(client, admin)
+        authenticate(client, encargado)
         await client.post(f"/v1/admin/reservations/{reservation['id']}/confirm")
 
         pending = await client.get(

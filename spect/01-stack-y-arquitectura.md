@@ -99,8 +99,9 @@ Las rutas de `app/` compondran features y templates. No se colocara logica de ac
 | Ruta | Tipo |
 |---|---|
 | `/` | Landing publica |
-| `/instalaciones` | Catalogo |
-| `/instalaciones/[slug]` | Detalle y disponibilidad |
+| `/organizaciones` | Selector publico |
+| `/instalaciones?organization={slug}` | Catalogo de una organización |
+| `/instalaciones/[slug]?organization={slug}` | Detalle y disponibilidad |
 | `/reservar/[id]` | Flujo de reserva |
 | `/mapa` | Complejo 3D |
 | `/mis-reservas` | Cliente |

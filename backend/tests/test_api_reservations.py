@@ -2,8 +2,6 @@
 
 from datetime import datetime, time, timedelta
 
-from sqlalchemy import func, select, update
-
 from app.core.config import settings
 from app.infrastructure.models import (
     FacilityScheduleModel,
@@ -11,6 +9,8 @@ from app.infrastructure.models import (
     ReservationEventModel,
     ReservationModel,
 )
+from sqlalchemy import func, select, update
+
 from tests.conftest import authenticate, requires_database
 
 pytestmark = requires_database
@@ -43,7 +43,9 @@ class TestCreate:
         assert body["status"] == "PENDING"
         assert body["facility"]["id"] == str(facility.id)
 
-    async def test_the_amount_is_calculated_by_the_server(self, client, customer, facility):
+    async def test_the_amount_is_calculated_by_the_server(
+        self, client, customer, facility
+    ):
         """RN-04: el importe no lo decide el cliente."""
         authenticate(client, customer)
 
@@ -149,7 +151,9 @@ class TestCreate:
     async def test_a_period_in_the_past_is_rejected(self, client, customer, facility):
         authenticate(client, customer)
 
-        status, _ = await create_reservation(client, facility, **slot_at(18, days_ahead=-2))
+        status, _ = await create_reservation(
+            client, facility, **slot_at(18, days_ahead=-2)
+        )
 
         assert status == 422
 
@@ -175,14 +179,18 @@ class TestOverlap:
 
         assert status == 409
         assert body["title"] == "Reservation conflict"
-        total = await db_session.scalar(select(func.count()).select_from(ReservationModel))
+        total = await db_session.scalar(
+            select(func.count()).select_from(ReservationModel)
+        )
         assert total == 1
 
     async def test_a_partial_overlap_is_also_rejected(self, client, customer, facility):
         authenticate(client, customer)
         await create_reservation(client, facility)
 
-        status, _ = await create_reservation(client, facility, **slot_at(17, minutes=120))
+        status, _ = await create_reservation(
+            client, facility, **slot_at(17, minutes=120)
+        )
 
         assert status == 409
 
@@ -253,7 +261,7 @@ class TestOwnership:
 
         assert response.json()["total"] == 0
 
-    async def test_an_admin_can_read_any_reservation(
+    async def test_an_admin_cannot_read_reservations(
         self, client, customer, admin, facility
     ):
         authenticate(client, customer)
@@ -262,7 +270,7 @@ class TestOwnership:
         authenticate(client, admin)
         response = await client.get(f"/v1/reservations/{reservation['id']}")
 
-        assert response.status_code == 200
+        assert response.status_code == 404
 
 
 class TestCancellation:

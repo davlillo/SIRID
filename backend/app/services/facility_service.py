@@ -5,9 +5,15 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.enums import Zone
-from app.domain.errors import FacilityNotBookable, FacilityNotFound, FacilitySlugTaken
+from app.domain.errors import (
+    FacilityNotBookable,
+    FacilityNotFound,
+    FacilitySlugTaken,
+    OrganizationNotFound,
+)
 from app.infrastructure.models import FacilityImageModel, FacilityModel
 from app.repositories.facility_repository import FacilityRepository
+from app.repositories.organization_repository import OrganizationRepository
 
 WRITABLE_FIELDS = (
     "name",
@@ -34,6 +40,7 @@ class FacilityService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
         self.repository = FacilityRepository(session)
+        self.organizations = OrganizationRepository(session)
 
     async def list_catalog(
         self,
@@ -42,6 +49,7 @@ class FacilityService:
         sport_type: str | None = None,
         facility_kind: str | None = None,
         min_capacity: int | None = None,
+        organization_id: UUID | None = None,
         include_inactive: bool = False,
         only_bookable: bool = False,
         page: int = 1,
@@ -52,41 +60,72 @@ class FacilityService:
             sport_type=sport_type,
             facility_kind=facility_kind,
             min_capacity=min_capacity,
+            organization_id=organization_id,
             include_inactive=include_inactive,
             only_bookable=only_bookable,
             page=page,
             limit=limit,
         )
 
-    async def get(self, facility_id: UUID, *, include_inactive: bool = False) -> FacilityModel:
-        facility = await self.repository.get_by_id(facility_id)
+    async def get(
+        self,
+        facility_id: UUID,
+        *,
+        organization_id: UUID | None = None,
+        include_inactive: bool = False,
+    ) -> FacilityModel:
+        facility = await self.repository.get_by_id(
+            facility_id, organization_id=organization_id
+        )
         if facility is None or (not facility.is_active and not include_inactive):
             raise FacilityNotFound("The requested facility does not exist.")
         return facility
 
-    async def get_by_slug(self, slug: str, *, include_inactive: bool = False) -> FacilityModel:
-        facility = await self.repository.get_by_slug(slug)
+    async def get_by_slug(
+        self,
+        slug: str,
+        *,
+        organization_id: UUID | None = None,
+        include_inactive: bool = False,
+    ) -> FacilityModel:
+        facility = await self.repository.get_by_slug(
+            slug, organization_id=organization_id
+        )
         if facility is None or (not facility.is_active and not include_inactive):
             raise FacilityNotFound("The requested facility does not exist.")
         return facility
 
-    async def require_bookable(self, facility_id: UUID) -> FacilityModel:
+    async def require_bookable(
+        self, facility_id: UUID, *, organization_id: UUID | None = None
+    ) -> FacilityModel:
         """RN-10: una instalacion inactiva o informativa no admite reservas."""
-        facility = await self.get(facility_id)
+        facility = await self.get(facility_id, organization_id=organization_id)
+        organization = await self.organizations.get_by_id(facility.organization_id)
+        if organization is None or not organization.is_active:
+            raise FacilityNotFound("The requested facility does not exist.")
         if not facility.is_bookable:
             raise FacilityNotBookable("This space is informative and cannot be booked.")
         return facility
 
     async def create(self, payload: dict) -> FacilityModel:
+        organization_id = payload["organization_id"]
+        organization = await self.organizations.get_by_id(organization_id)
+        if organization is None or not organization.is_active:
+            raise OrganizationNotFound("The requested organization does not exist.")
         slug = payload["slug"].strip().lower()
-        if await self.repository.slug_exists(slug):
+        if await self.repository.slug_exists(slug, organization_id=organization_id):
             raise FacilitySlugTaken(f"The slug '{slug}' is already in use.")
 
         facility = self.repository.add(
             FacilityModel(
+                organization_id=payload["organization_id"],
                 slug=slug,
                 facility_metadata=payload.get("metadata") or {},
-                **{field: payload.get(field) for field in WRITABLE_FIELDS if field in payload},
+                **{
+                    field: payload.get(field)
+                    for field in WRITABLE_FIELDS
+                    if field in payload
+                },
             )
         )
         await self.session.commit()
@@ -96,9 +135,13 @@ class FacilityService:
     async def update(self, facility_id: UUID, payload: dict) -> FacilityModel:
         facility = await self.get(facility_id, include_inactive=True)
 
-        if "slug" in payload and payload["slug"]:
+        if payload.get("slug"):
             slug = payload["slug"].strip().lower()
-            if await self.repository.slug_exists(slug, excluding=facility.id):
+            if await self.repository.slug_exists(
+                slug,
+                organization_id=facility.organization_id,
+                excluding=facility.id,
+            ):
                 raise FacilitySlugTaken(f"The slug '{slug}' is already in use.")
             facility.slug = slug
 
@@ -112,7 +155,9 @@ class FacilityService:
         await self.session.refresh(facility)
         return facility
 
-    async def replace_images(self, facility_id: UUID, images: list[dict]) -> FacilityModel:
+    async def replace_images(
+        self, facility_id: UUID, images: list[dict]
+    ) -> FacilityModel:
         facility = await self.get(facility_id, include_inactive=True)
         facility.images.clear()
         for order, image in enumerate(images):

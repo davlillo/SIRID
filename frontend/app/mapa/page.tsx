@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import { TechnicalLabel } from "@/components/atoms/technical-label";
 import { PublicLayout } from "@/components/templates/public-layout";
@@ -13,16 +14,22 @@ export const metadata: Metadata = {
   description: "Vista esquematica e interactiva del complejo deportivo SIRID.",
 };
 
-export default async function MapPage() {
+export default async function MapPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ organization?: string }>;
+}) {
+  const { organization } = await searchParams;
+  if (!organization) redirect("/organizaciones");
   let facilities: Facility[] = [];
   try {
-    facilities = (await facilitiesApi.list({ limit: 50 }, 60)).items;
+    facilities = (await facilitiesApi.listForOrganization(organization, { limit: 50 }, 60)).items;
   } catch {
     facilities = [];
   }
 
   return (
-    <PublicLayout>
+    <PublicLayout organizationSlug={organization}>
       <section className="py-14">
         <TechnicalLabel>MAP_3D / COMPLEX_LAYOUT</TechnicalLabel>
         <h1 className="dvl-display mt-4">El complejo</h1>
@@ -32,7 +39,7 @@ export default async function MapPage() {
           siempre viene de la API.
         </p>
 
-        <ComplexMapClient facilities={facilities} />
+        <ComplexMapClient facilities={facilities} organizationSlug={organization} />
       </section>
     </PublicLayout>
   );

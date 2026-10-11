@@ -15,6 +15,10 @@
 - Probar constraint de solapamiento con dos transacciones concurrentes.
 - Probar tarifas, horarios y cambios de estado.
 - Probar token Google invalido, expirado y audiencia incorrecta.
+- Probar alta por dominio activo, vínculo de cuentas provisionadas y bloqueo de organizaciones/usuarios inactivos.
+- Probar aislamiento entre dos organizaciones de prueba para catálogo, disponibilidad, usuarios y reservas con IDs ajenos conocidos.
+- Probar que ADMIN gestiona organizaciones/usuarios/instalaciones pero recibe `403` en cada operación de reservas.
+- Probar que ENCARGADO opera reservas solo de su `organization_id` y no modifica el catálogo.
 
 ## Frontend
 
@@ -31,9 +35,12 @@
 | Periodo solapado | `409`, no se crea segunda reserva |
 | Reserva cancelada | La franja vuelve a estar disponible |
 | Cliente consulta reserva ajena | Acceso rechazado |
-| Usuario sin rol admin gestiona catalogo | `403` |
-| Admin confirma pendiente | Estado `CONFIRMED` y correo |
-| Admin completa reserva futura | Rechazo de regla de dominio |
+| Cliente/encargado gestiona catálogo | `403` |
+| Admin gestiona catálogo de cualquier organización | Permitido |
+| Admin consulta/actualiza reservas | `403` |
+| Encargado de la organización confirma pendiente | Estado `CONFIRMED` y correo |
+| Encargado consulta reserva de otro tenant | `404` |
+| Admin completa reserva futura | Rechazo de autorización |
 | SMTP no responde | Reserva permanece, error registrado |
 
 ## Calidad

@@ -8,11 +8,14 @@ _NAME = re.compile(r"[^\W\d_]+(?:[ '\-][^\W\d_]+)*", re.UNICODE)
 
 def _validate_person_name(value: str) -> str:
     if not _NAME.fullmatch(value):
-        raise ValueError("El nombre solo puede contener letras, espacios, apostrofes o guiones.")
+        raise ValueError(
+            "El nombre solo puede contener letras, espacios, apostrofes o guiones."
+        )
     return value
 
 
 class ClientCreate(BaseModel):
+    organization_id: UUID
     first_name: str = Field(min_length=2, max_length=80)
     last_name: str = Field(min_length=2, max_length=80)
     dui: str = Field(pattern=r"^\d{8}-\d$")
@@ -55,6 +58,7 @@ class ClientResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    organization_id: UUID
     first_name: str
     last_name: str
     dui: str

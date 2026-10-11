@@ -1,8 +1,8 @@
-# DAVLILLOS Reserva Deportiva
+# SIRID — Sistema de Reservación de Instalaciones Deportivas
 
 ## Vision
 
-DAVLILLOS Reserva Deportiva permitira que los clientes consulten instalaciones deportivas, revisen disponibilidad y soliciten reservas desde una experiencia web. El personal administrador gestionara instalaciones, horarios, tarifas y el ciclo de vida de cada reserva.
+SIRID permitirá que clientes de distintas organizaciones consulten sus instalaciones deportivas, revisen disponibilidad y soliciten reservas desde una experiencia web. El administrador del sistema gestionará organizaciones, usuarios e instalaciones; cada encargado gestionará las reservas de su organización.
 
 ## Problema
 
@@ -14,7 +14,9 @@ Las reservas telefonicas y los registros manuales dificultan conocer la disponib
 - Permitir autenticacion mediante Google.
 - Consultar disponibilidad por fecha y periodo.
 - Crear reservas con estado `PENDING`.
-- Permitir al administrador confirmar, cancelar y completar reservas.
+- Permitir al encargado confirmar, cancelar y completar reservas de su organización.
+- Permitir al administrador del sistema crear organizaciones y gestionar usuarios, instalaciones, horarios y tarifas en cualquiera de ellas.
+- Aislar clientes, instalaciones y reservas entre organizaciones, con catálogo público seleccionable por organización.
 - Impedir solapamientos mediante una restriccion en PostgreSQL.
 - Notificar por correo las reservas creadas y sus cambios relevantes.
 - Ofrecer un plano 3D esquematico e interactivo del complejo.
@@ -24,19 +26,22 @@ Las reservas telefonicas y los registros manuales dificultan conocer la disponib
 | Actor | Objetivo |
 |---|---|
 | Cliente | Consultar instalaciones, reservar y revisar sus reservas |
-| Administrador | Gestionar catalogo y aprobar o actualizar reservas |
+| Encargado | Gestionar las reservas de su organización |
+| Administrador del sistema | Gestionar organizaciones, usuarios e instalaciones; no accede a reservas |
+| Organización | Mantener un catálogo y reservas aisladas |
 | Google | Proveedor de identidad |
 | Gmail SMTP | Proveedor de correo transaccional |
 
 ## Incluye
 
 - Usuarios autenticados con Google.
-- Roles `CLIENT` y `ADMIN`.
-- CRUD administrativo de instalaciones, horarios y tarifas.
-- Catalogo publico y detalle de instalacion.
+- Roles `CLIENT`, `ENCARGADO` y `ADMIN`.
+- Organizaciones con usuarios, instalaciones, horarios, tarifas y reservas aislados.
+- CRUD global de organizaciones/usuarios; CRUD de instalaciones disponible al administrador del sistema.
+- Catálogo público y detalle de instalación por organización.
 - Disponibilidad y validacion de horarios.
 - Reserva, cancelacion y consulta del historial propio.
-- Confirmacion, cancelacion y finalizacion administrativa.
+- Confirmación, cancelación y finalización de reservas por el encargado de la organización.
 - Auditoria de cambios de reserva.
 - Correos SMTP.
 - Plano 3D esquematico basado en geometria de Three.js.
@@ -57,7 +62,9 @@ Las reservas telefonicas y los registros manuales dificultan conocer la disponib
 
 - Ninguna instalacion puede tener dos reservas activas solapadas.
 - Un cliente no puede acceder a reservas de otro cliente.
-- Un administrador puede completar el flujo de reserva sin editar la base de datos manualmente.
+- Un encargado puede completar el flujo de reserva de su organización sin editar la base de datos manualmente.
+- Un usuario no puede consultar ni modificar reservas de otra organización.
+- El administrador puede gestionar instalaciones de varias organizaciones, pero no consultar ni operar reservas.
 - El proyecto se levanta con un unico comando Docker Compose documentado.
 
 ## Restricciones

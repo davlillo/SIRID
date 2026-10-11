@@ -18,10 +18,13 @@ class FacilityRepository:
         sport_type: str | None,
         facility_kind: str | None,
         min_capacity: int | None,
+        organization_id: UUID | None,
         include_inactive: bool,
         only_bookable: bool,
     ) -> Select[tuple[FacilityModel]]:
         query = select(FacilityModel)
+        if organization_id is not None:
+            query = query.where(FacilityModel.organization_id == organization_id)
         if not include_inactive:
             query = query.where(FacilityModel.is_active.is_(True))  # RN-10
         if only_bookable:
@@ -43,6 +46,7 @@ class FacilityRepository:
         sport_type: str | None = None,
         facility_kind: str | None = None,
         min_capacity: int | None = None,
+        organization_id: UUID | None = None,
         include_inactive: bool = False,
         only_bookable: bool = False,
         page: int = 1,
@@ -53,6 +57,7 @@ class FacilityRepository:
             "sport_type": sport_type,
             "facility_kind": facility_kind,
             "min_capacity": min_capacity,
+            "organization_id": organization_id,
             "include_inactive": include_inactive,
             "only_bookable": only_bookable,
         }
@@ -67,14 +72,37 @@ class FacilityRepository:
         )
         return list(rows.unique().all()), int(total or 0)
 
-    async def get_by_id(self, facility_id: UUID) -> FacilityModel | None:
-        return await self.session.get(FacilityModel, facility_id)
+    async def get_by_id(
+        self, facility_id: UUID, *, organization_id: UUID | None = None
+    ) -> FacilityModel | None:
+        query = select(FacilityModel).where(FacilityModel.id == facility_id)
+        if organization_id is not None:
+            query = query.where(FacilityModel.organization_id == organization_id)
+        return await self.session.scalar(query)
 
-    async def get_by_slug(self, slug: str) -> FacilityModel | None:
-        return await self.session.scalar(select(FacilityModel).where(FacilityModel.slug == slug))
+    async def get_by_slug(
+        self, slug: str, *, organization_id: UUID | None = None
+    ) -> FacilityModel | None:
+        query = select(FacilityModel).where(FacilityModel.slug == slug)
+        if organization_id is not None:
+            query = query.where(FacilityModel.organization_id == organization_id)
+        return await self.session.scalar(query)
 
-    async def slug_exists(self, slug: str, *, excluding: UUID | None = None) -> bool:
-        query = select(func.count()).select_from(FacilityModel).where(FacilityModel.slug == slug)
+    async def slug_exists(
+        self,
+        slug: str,
+        *,
+        organization_id: UUID,
+        excluding: UUID | None = None,
+    ) -> bool:
+        query = (
+            select(func.count())
+            .select_from(FacilityModel)
+            .where(
+                FacilityModel.organization_id == organization_id,
+                FacilityModel.slug == slug,
+            )
+        )
         if excluding is not None:
             query = query.where(FacilityModel.id != excluding)
         return bool(await self.session.scalar(query))

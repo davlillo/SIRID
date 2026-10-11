@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { TechnicalLabel } from "@/components/atoms/technical-label";
 import { PublicLayout } from "@/components/templates/public-layout";
@@ -19,36 +19,43 @@ import type { FacilityDetail } from "@/lib/types";
 
 export const revalidate = 60;
 
-type Params = { params: Promise<{ slug: string }> };
+type Params = {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ organization?: string }>;
+};
 
-async function loadFacility(slug: string): Promise<FacilityDetail> {
+async function loadFacility(slug: string, organizationSlug: string): Promise<FacilityDetail> {
   try {
-    return await facilitiesApi.bySlug(slug, 60);
+    return await facilitiesApi.bySlugForOrganization(organizationSlug, slug, 60);
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) notFound();
     throw error;
   }
 }
 
-export async function generateMetadata({ params }: Params): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: Params): Promise<Metadata> {
   const { slug } = await params;
+  const { organization } = await searchParams;
+  if (!organization) return { title: "Instalaciones" };
   try {
-    const facility = await facilitiesApi.bySlug(slug, 60);
+    const facility = await facilitiesApi.bySlugForOrganization(organization, slug, 60);
     return { title: facility.name, description: facility.description.slice(0, 160) };
   } catch {
     return { title: "Instalacion" };
   }
 }
 
-export default async function FacilityDetailPage({ params }: Params) {
+export default async function FacilityDetailPage({ params, searchParams }: Params) {
   const { slug } = await params;
-  const facility = await loadFacility(slug);
+  const { organization } = await searchParams;
+  if (!organization) redirect("/organizaciones");
+  const facility = await loadFacility(slug, organization);
 
   const activeRate = facility.rates.find((rate) => rate.is_active);
   const schedules = facility.schedules.filter((schedule) => schedule.is_active);
 
   return (
-    <PublicLayout>
+    <PublicLayout organizationSlug={organization}>
       <nav aria-label="Ruta de navegacion" className="pt-8">
         <ol className="flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-charcoal/55">
           <li>
@@ -58,7 +65,10 @@ export default async function FacilityDetailPage({ params }: Params) {
           </li>
           <li aria-hidden="true">/</li>
           <li>
-            <Link href="/instalaciones" className="hover:text-terracotta">
+            <Link
+              href={`/instalaciones?organization=${encodeURIComponent(organization)}`}
+              className="hover:text-terracotta"
+            >
               Instalaciones
             </Link>
           </li>
@@ -141,7 +151,7 @@ export default async function FacilityDetailPage({ params }: Params) {
 
         {facility.is_bookable ? (
           <div className="mt-8">
-            <ReservationFlow facility={facility} />
+            <ReservationFlow facility={facility} organizationSlug={organization} />
           </div>
         ) : (
           <p className="mt-4 max-w-xl border border-dashed border-charcoal/30 px-5 py-6 text-sm leading-6 text-charcoal/70">

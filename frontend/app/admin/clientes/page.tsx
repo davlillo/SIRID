@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/atoms/button";
-import { Field, Input } from "@/components/atoms/field";
+import { Field, Input, Select } from "@/components/atoms/field";
 import { Modal } from "@/components/atoms/modal";
 import { EmptyState, ErrorState, LoadingBlock } from "@/components/atoms/states";
 import { TechnicalLabel } from "@/components/atoms/technical-label";
@@ -13,9 +13,11 @@ import {
   useCreateClient,
   useUpdateClient,
 } from "@/features/admin/hooks";
+import { useAdminOrganizations } from "@/features/admin/management-hooks";
 import type { Client } from "@/lib/types";
 
 type ClientForm = {
+  organization_id: string;
   first_name: string;
   last_name: string;
   dui: string;
@@ -24,6 +26,7 @@ type ClientForm = {
 };
 
 const EMPTY_FORM: ClientForm = {
+  organization_id: "",
   first_name: "",
   last_name: "",
   dui: "",
@@ -36,6 +39,7 @@ const isPlaceholderEmail = (email: string) => email.endsWith("@client.sirid.loca
 
 export default function AdminClientsPage() {
   const clients = useAdminClients();
+  const organizations = useAdminOrganizations();
   const create = useCreateClient();
   const update = useUpdateClient();
   const [editing, setEditing] = useState<Client | null>(null);
@@ -57,6 +61,10 @@ export default function AdminClientsPage() {
         .includes(term),
     );
   }, [clients.data, search]);
+  const organizationNames = useMemo(
+    () => new Map((organizations.data ?? []).map((organization) => [organization.id, organization.name])),
+    [organizations.data],
+  );
 
   function resetForm() {
     setEditing(null);
@@ -68,6 +76,7 @@ export default function AdminClientsPage() {
     setEditing(client);
     setAttempted(false);
     setForm({
+      organization_id: client.organization_id,
       first_name: client.first_name,
       last_name: client.last_name,
       dui: client.dui,
@@ -121,6 +130,31 @@ export default function AdminClientsPage() {
         >
           <TechnicalLabel>{editing ? "EDITAR CLIENTE" : "NUEVO CLIENTE"}</TechnicalLabel>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+            <Field
+              label="Organización"
+              htmlFor="client-organization"
+              error={shown("organization_id")}
+              className="sm:col-span-2 xl:col-span-1"
+            >
+              <Select
+                id="client-organization"
+                required
+                disabled={Boolean(editing)}
+                value={form.organization_id}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, organization_id: event.target.value }))
+                }
+              >
+                <option value="">Selecciona una organización</option>
+                {organizations.data
+                  ?.filter((organization) => organization.is_active)
+                  .map((organization) => (
+                    <option key={organization.id} value={organization.id}>
+                      {organization.name}
+                    </option>
+                  ))}
+              </Select>
+            </Field>
             <Field
               label="Nombres"
               htmlFor="client-first-name"
@@ -297,7 +331,7 @@ export default function AdminClientsPage() {
               <table className="w-full min-w-[40rem] border-collapse text-sm">
                 <thead>
                   <tr className="bg-charcoal text-ivory">
-                    {["Cliente", "DUI", "Teléfono", "Estado", "Acciones"].map((heading) => (
+                    {["Cliente", "Organización", "DUI", "Teléfono", "Estado", "Acciones"].map((heading) => (
                       <th
                         key={heading}
                         scope="col"
@@ -333,6 +367,9 @@ export default function AdminClientsPage() {
                             ? "Sin correo registrado"
                             : client.email}
                         </span>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        {organizationNames.get(client.organization_id) ?? "—"}
                       </td>
                       <td
                         className={
@@ -442,6 +479,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 function validateClient(form: ClientForm): Record<keyof ClientForm, string> {
   return {
+    organization_id: form.organization_id ? "" : "Selecciona una organización.",
     first_name: validateName(form.first_name, "Los nombres"),
     last_name: validateName(form.last_name, "Los apellidos"),
     dui: /^\d{8}-\d$/.test(form.dui) ? "" : "El DUI debe contener 9 dígitos.",
@@ -465,14 +503,17 @@ function visibleError(error: string, value: string, attempted: boolean): string 
   return error && (attempted || value.length > 0) ? error : undefined;
 }
 
-function changedFields(original: Client, form: ClientForm): Partial<ClientForm> {
-  const changes: Partial<ClientForm> = {};
+function changedFields(
+  original: Client,
+  form: ClientForm,
+): Partial<Omit<ClientForm, "organization_id">> {
+  const changes: Partial<Omit<ClientForm, "organization_id">> = {};
   const current: ClientForm = {
     ...form,
     first_name: form.first_name.trim(),
     last_name: form.last_name.trim(),
   };
-  for (const key of Object.keys(current) as (keyof ClientForm)[]) {
+  for (const key of ["first_name", "last_name", "dui", "phone", "email"] as const) {
     if (current[key] !== original[key]) changes[key] = current[key];
   }
   return changes;

@@ -1,11 +1,13 @@
 ﻿"""HU-01 y RF-02: registro, actualizacion y baja de clientes."""
 
 from app.infrastructure.google_identity import GoogleIdentity
-from tests.conftest import authenticate, requires_database
+
+from tests.conftest import TEST_ORGANIZATION_ID, authenticate, requires_database
 
 pytestmark = requires_database
 
 CLIENT = {
+    "organization_id": str(TEST_ORGANIZATION_ID),
     "first_name": "Ana",
     "last_name": "Martinez",
     "dui": "01234567-8",
@@ -23,12 +25,12 @@ def _sign_in_as_registered_client(google_verifier) -> None:
     )
 
 
-async def test_an_encargado_registers_a_client(client, encargado):
-    authenticate(client, encargado)
+async def test_an_admin_registers_a_client(client, admin):
+    authenticate(client, admin)
 
     response = await client.post("/v1/admin/clients", json=CLIENT)
 
-    assert response.status_code == 201
+    assert response.status_code == 201, response.text
     body = response.json()
     assert body["first_name"] == "Ana"
     assert body["last_name"] == "Martinez"
@@ -38,8 +40,21 @@ async def test_an_encargado_registers_a_client(client, encargado):
     assert body["is_active"] is True
 
 
-async def test_a_duplicate_dui_is_rejected(client, encargado):
-    authenticate(client, encargado)
+async def test_an_admin_can_complete_an_auto_registered_google_client(
+    client, admin, customer
+):
+    authenticate(client, admin)
+    payload = {**CLIENT, "email": customer.email}
+
+    response = await client.post("/v1/admin/clients", json=payload)
+
+    assert response.status_code == 201, response.text
+    assert response.json()["id"] == str(customer.id)
+    assert response.json()["organization_id"] == str(customer.organization_id)
+
+
+async def test_a_duplicate_dui_is_rejected(client, admin):
+    authenticate(client, admin)
     await client.post("/v1/admin/clients", json=CLIENT)
 
     response = await client.post(
@@ -52,8 +67,8 @@ async def test_a_duplicate_dui_is_rejected(client, encargado):
     assert response.json()["detail"] == "Ya existe un cliente registrado con este DUI."
 
 
-async def test_a_duplicate_email_is_rejected(client, encargado):
-    authenticate(client, encargado)
+async def test_a_duplicate_email_is_rejected(client, admin):
+    authenticate(client, admin)
     await client.post("/v1/admin/clients", json=CLIENT)
 
     response = await client.post(
@@ -64,8 +79,8 @@ async def test_a_duplicate_email_is_rejected(client, encargado):
     assert response.json()["title"] == "Correo de cliente ya registrado"
 
 
-async def test_invalid_or_incomplete_client_data_is_rejected(client, encargado):
-    authenticate(client, encargado)
+async def test_invalid_or_incomplete_client_data_is_rejected(client, admin):
+    authenticate(client, admin)
 
     response = await client.post(
         "/v1/admin/clients",
@@ -81,8 +96,8 @@ async def test_invalid_or_incomplete_client_data_is_rejected(client, encargado):
     assert response.status_code == 422
 
 
-async def test_the_email_is_required(client, encargado):
-    authenticate(client, encargado)
+async def test_the_email_is_required(client, admin):
+    authenticate(client, admin)
     payload = {key: value for key, value in CLIENT.items() if key != "email"}
 
     response = await client.post("/v1/admin/clients", json=payload)
@@ -99,8 +114,8 @@ async def test_a_regular_client_cannot_register_other_clients(client, customer):
     assert response.status_code == 403
 
 
-async def test_registered_clients_are_listed(client, encargado):
-    authenticate(client, encargado)
+async def test_registered_clients_are_listed(client, admin):
+    authenticate(client, admin)
     await client.post("/v1/admin/clients", json=CLIENT)
 
     response = await client.get("/v1/admin/clients")
@@ -109,8 +124,8 @@ async def test_registered_clients_are_listed(client, encargado):
     assert response.json()[0]["dui"] == CLIENT["dui"]
 
 
-async def test_a_client_can_be_updated(client, encargado):
-    authenticate(client, encargado)
+async def test_a_client_can_be_updated(client, admin):
+    authenticate(client, admin)
     created = (await client.post("/v1/admin/clients", json=CLIENT)).json()
 
     response = await client.patch(
@@ -124,8 +139,8 @@ async def test_a_client_can_be_updated(client, encargado):
     assert response.json()["dui"] == CLIENT["dui"]
 
 
-async def test_updating_to_another_clients_dui_is_rejected(client, encargado):
-    authenticate(client, encargado)
+async def test_updating_to_another_clients_dui_is_rejected(client, admin):
+    authenticate(client, admin)
     await client.post("/v1/admin/clients", json=CLIENT)
     second = (
         await client.post(
@@ -141,8 +156,8 @@ async def test_updating_to_another_clients_dui_is_rejected(client, encargado):
     assert response.status_code == 409
 
 
-async def test_a_client_can_be_deactivated_and_reactivated(client, encargado):
-    authenticate(client, encargado)
+async def test_a_client_can_be_deactivated_and_reactivated(client, admin):
+    authenticate(client, admin)
     created = (await client.post("/v1/admin/clients", json=CLIENT)).json()
 
     off = await client.patch(
@@ -156,8 +171,8 @@ async def test_a_client_can_be_deactivated_and_reactivated(client, encargado):
     assert on.json()["is_active"] is True
 
 
-async def test_a_deactivated_client_keeps_their_data_in_the_list(client, encargado):
-    authenticate(client, encargado)
+async def test_a_deactivated_client_keeps_their_data_in_the_list(client, admin):
+    authenticate(client, admin)
     created = (await client.post("/v1/admin/clients", json=CLIENT)).json()
     await client.patch(f"/v1/admin/clients/{created['id']}", json={"is_active": False})
 
@@ -167,8 +182,8 @@ async def test_a_deactivated_client_keeps_their_data_in_the_list(client, encarga
     assert listed[0]["is_active"] is False
 
 
-async def test_an_unknown_client_returns_404(client, encargado):
-    authenticate(client, encargado)
+async def test_an_unknown_client_returns_404(client, admin):
+    authenticate(client, admin)
 
     response = await client.patch(
         "/v1/admin/clients/00000000-0000-0000-0000-000000000000",
@@ -178,9 +193,9 @@ async def test_an_unknown_client_returns_404(client, encargado):
     assert response.status_code == 404
 
 
-async def test_a_deactivated_client_cannot_sign_in(client, encargado, google_verifier):
+async def test_a_deactivated_client_cannot_sign_in(client, admin, google_verifier):
     _sign_in_as_registered_client(google_verifier)
-    authenticate(client, encargado)
+    authenticate(client, admin)
     created = (
         await client.post(
             "/v1/admin/clients",
@@ -190,16 +205,18 @@ async def test_a_deactivated_client_cannot_sign_in(client, encargado, google_ver
     await client.patch(f"/v1/admin/clients/{created['id']}", json={"is_active": False})
     client.cookies.clear()
 
-    response = await client.post("/v1/auth/google", json={"credential": "a-valid-google-token"})
+    response = await client.post(
+        "/v1/auth/google", json={"credential": "a-valid-google-token"}
+    )
 
     assert response.status_code == 401
 
 
 async def test_a_registered_client_links_their_google_account_by_email(
-    client, encargado, google_verifier
+    client, admin, google_verifier
 ):
     _sign_in_as_registered_client(google_verifier)
-    authenticate(client, encargado)
+    authenticate(client, admin)
     created = (
         await client.post(
             "/v1/admin/clients",
@@ -208,7 +225,9 @@ async def test_a_registered_client_links_their_google_account_by_email(
     ).json()
     client.cookies.clear()
 
-    response = await client.post("/v1/auth/google", json={"credential": "a-valid-google-token"})
+    response = await client.post(
+        "/v1/auth/google", json={"credential": "a-valid-google-token"}
+    )
 
     assert response.status_code == 200
     assert response.json()["id"] == created["id"]

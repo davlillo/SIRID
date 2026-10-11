@@ -172,7 +172,13 @@ function Scene({
   );
 }
 
-export function ComplexMap3D({ facilities }: { facilities: Facility[] }) {
+export function ComplexMap3D({
+  facilities,
+  organizationSlug,
+}: {
+  facilities: Facility[];
+  organizationSlug: string;
+}) {
   const router = useRouter();
   const nodes = useMemo(() => toNodes(facilities), [facilities]);
   const [selected, setSelected] = useState<MapNode | null>(null);
@@ -191,7 +197,7 @@ export function ComplexMap3D({ facilities }: { facilities: Facility[] }) {
   }, []);
 
   if (!webglSupported || nodes.length === 0) {
-    return <MapFallback facilities={facilities} />;
+    return <MapFallback facilities={facilities} organizationSlug={organizationSlug} />;
   }
 
   return (
@@ -219,7 +225,9 @@ export function ComplexMap3D({ facilities }: { facilities: Facility[] }) {
             </p>
             {selected.facility.is_bookable ? (
               <button
-                onClick={() => router.push(`/instalaciones/${selected.facility.slug}`)}
+                onClick={() =>
+                  router.push(facilityHref(selected.facility.slug, organizationSlug))
+                }
                 className="mt-3 inline-flex min-h-11 w-full items-center justify-center bg-terracotta px-4 text-sm font-semibold text-ivory transition-colors hover:bg-coffee"
               >
                 Ver disponibilidad
@@ -236,7 +244,7 @@ export function ComplexMap3D({ facilities }: { facilities: Facility[] }) {
       </div>
 
       {/* Alternativa accesible: teclado, mobile y ausencia de WebGL. */}
-      <MapFallback facilities={facilities} compact />
+      <MapFallback facilities={facilities} compact organizationSlug={organizationSlug} />
     </div>
   );
 }
@@ -270,9 +278,11 @@ function MapLegend() {
 export function MapFallback({
   facilities,
   compact = false,
+  organizationSlug,
 }: {
   facilities: Facility[];
   compact?: boolean;
+  organizationSlug: string;
 }) {
   return (
     <section className={compact ? "mt-6" : ""} aria-label="Listado de espacios del complejo">
@@ -283,7 +293,11 @@ export function MapFallback({
         {facilities.map((facility) => (
           <li key={facility.id}>
             <a
-              href={facility.is_bookable ? `/instalaciones/${facility.slug}` : undefined}
+              href={
+                facility.is_bookable
+                  ? facilityHref(facility.slug, organizationSlug)
+                  : undefined
+              }
               aria-disabled={!facility.is_bookable}
               className={
                 facility.is_bookable
@@ -301,4 +315,8 @@ export function MapFallback({
       </ul>
     </section>
   );
+}
+
+function facilityHref(slug: string, organizationSlug: string): string {
+  return `/instalaciones/${slug}?organization=${encodeURIComponent(organizationSlug)}`;
 }

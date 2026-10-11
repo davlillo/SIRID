@@ -13,14 +13,14 @@ const DEV_AUTH_ENABLED = process.env.NEXT_PUBLIC_DEV_AUTH_ENABLED === "true";
 
 export default function SignInPage() {
   const router = useRouter();
-  const { user, isAdmin, canManageCatalog, loginForDevelopment } = useAuth();
+  const { user, isAdmin, isReservationManager, loginForDevelopment } = useAuth();
 
   useEffect(() => {
     if (!user) return;
     if (isAdmin) router.replace("/admin");
-    else if (canManageCatalog) router.replace("/admin/instalaciones");
+    else if (isReservationManager) router.replace("/admin/reservas");
     else router.replace("/mis-reservas");
-  }, [user, isAdmin, canManageCatalog, router]);
+  }, [user, isAdmin, isReservationManager, router]);
 
   return (
     <PublicLayout>

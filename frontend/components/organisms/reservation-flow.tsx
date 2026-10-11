@@ -23,7 +23,13 @@ import { RangeChecker } from "./range-checker";
 
 const STEPS = ["Fecha", "Bloque", "Datos", "Confirmar"] as const;
 
-export function ReservationFlow({ facility }: { facility: FacilityDetail }) {
+export function ReservationFlow({
+  facility,
+  organizationSlug,
+}: {
+  facility: FacilityDetail;
+  organizationSlug: string;
+}) {
   const router = useRouter();
   const { user } = useAuth();
   const createReservation = useCreateReservation();
@@ -33,7 +39,7 @@ export function ReservationFlow({ facility }: { facility: FacilityDetail }) {
   const [selection, setSelection] = useState<Slot[]>([]);
   const [note, setNote] = useState("");
 
-  const step = selection.length === 0 ? 1 : !user ? 3 : 4;
+  const step = selection.length === 0 ? 1 : user?.role === "CLIENT" ? 4 : 3;
   const total = selection.reduce((sum, item) => sum + Number(item.amount ?? 0), 0);
 
   async function submit() {
@@ -77,12 +83,14 @@ export function ReservationFlow({ facility }: { facility: FacilityDetail }) {
               <RangeChecker
                 key={date}
                 facilityId={facility.id}
+                organizationSlug={organizationSlug}
                 date={date}
                 onPick={setSelection}
                 isBookable={facility.is_bookable}
               />
               <AvailabilityCalendar
                 facilityId={facility.id}
+                organizationSlug={organizationSlug}
                 date={date}
                 selected={selection}
                 onSelect={(slot) => setSelection([slot])}
@@ -95,7 +103,7 @@ export function ReservationFlow({ facility }: { facility: FacilityDetail }) {
             <TechnicalLabel>PASO 3 · DATOS DE LA SOLICITUD</TechnicalLabel>
             <div className="mt-2">
               <Field
-                label="Nota para el administrador (opcional)"
+                label="Nota para el encargado (opcional)"
                 htmlFor="customer-note"
                 hint="Contanos el motivo: partido, entrenamiento, evento…"
               >
@@ -143,8 +151,8 @@ export function ReservationFlow({ facility }: { facility: FacilityDetail }) {
 
         <p className="mt-4 text-xs leading-5 text-charcoal/65">
           El importe lo calcula el servidor con la tarifa vigente y queda congelado en la
-          reserva. La solicitud entra como <strong>pendiente</strong> hasta que un administrador
-          la confirme.
+          reserva. La solicitud entra como <strong>pendiente</strong> hasta que el encargado de
+          reservaciones la confirme.
         </p>
 
         <div className="mt-5">
@@ -153,6 +161,10 @@ export function ReservationFlow({ facility }: { facility: FacilityDetail }) {
               <TechnicalLabel>INICIA SESION PARA CONFIRMAR</TechnicalLabel>
               <GoogleAuthButton />
             </div>
+          ) : user.role !== "CLIENT" ? (
+            <p className="border border-dashed border-charcoal/25 p-3 text-sm text-charcoal/65">
+              Solo las cuentas de cliente pueden solicitar reservas.
+            </p>
           ) : (
             <Button
               className="w-full"

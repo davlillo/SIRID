@@ -12,10 +12,12 @@ import { useAuth } from "@/features/auth/auth-context";
 import { cn } from "@/lib/cn";
 
 const SECTIONS = [
-  { href: "/admin", label: "Resumen" },
-  { href: "/admin/reservas", label: "Reservas" },
-  { href: "/admin/clientes", label: "Clientes" },
-  { href: "/admin/instalaciones", label: "Instalaciones" },
+  { href: "/admin", label: "Resumen", access: "admin" },
+  { href: "/admin/organizaciones", label: "Organizaciones", access: "admin" },
+  { href: "/admin/usuarios", label: "Usuarios", access: "admin" },
+  { href: "/admin/clientes", label: "Clientes", access: "admin" },
+  { href: "/admin/instalaciones", label: "Instalaciones", access: "admin" },
+  { href: "/admin/reservas", label: "Reservas", access: "reservations" },
 ];
 
 /**
@@ -29,11 +31,11 @@ export function AdminLayout({
   access = "admin",
 }: {
   children: React.ReactNode;
-  access?: "admin" | "catalog";
+  access?: "admin" | "catalog" | "reservations";
 }) {
   const pathname = usePathname();
-  const { user, isAdmin, canManageCatalog, isLoading } = useAuth();
-  const allowed = access === "catalog" ? canManageCatalog : isAdmin;
+  const { user, isAdmin, isReservationManager, isLoading } = useAuth();
+  const allowed = access === "reservations" ? isReservationManager : isAdmin;
 
   if (isLoading) {
     return (
@@ -79,11 +81,8 @@ export function AdminLayout({
           <nav aria-label="Secciones del panel" className="lg:sticky lg:top-8">
             <TechnicalLabel>PANEL</TechnicalLabel>
             <ul className="mt-3 flex gap-2 overflow-x-auto lg:flex-col lg:overflow-visible">
-              {SECTIONS.filter(
-                (section) =>
-                  isAdmin ||
-                  section.href === "/admin/clientes" ||
-                  section.href === "/admin/instalaciones",
+              {SECTIONS.filter((section) =>
+                section.access === "admin" ? isAdmin : isReservationManager,
               ).map((section) => {
                 const active =
                   section.href === "/admin"

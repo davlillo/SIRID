@@ -16,6 +16,7 @@ import {
   useSaveFacility,
   useSaveSchedules,
 } from "@/features/admin/hooks";
+import { useAdminOrganizations } from "@/features/admin/management-hooks";
 import { useAuth } from "@/features/auth/auth-context";
 import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
@@ -24,6 +25,7 @@ import type { Facility, FacilityKind, SportType, Zone } from "@/lib/types";
 
 export default function AdminFacilitiesPage() {
   const facilities = useAdminFacilities();
+  const organizations = useAdminOrganizations();
   const { canManageCatalog } = useAuth();
   const [editing, setEditing] = useState<Facility | null>(null);
   const [creating, setCreating] = useState(false);
@@ -62,7 +64,7 @@ export default function AdminFacilitiesPage() {
             <caption className="sr-only">Instalaciones del complejo</caption>
             <thead>
               <tr className="bg-charcoal text-ivory">
-                {["Nombre", "Zona", "Tipo", "Cap.", "Estado"].map((head) => (
+                {["Nombre", "Organización", "Zona", "Tipo", "Cap.", "Estado"].map((head) => (
                   <th
                     key={head}
                     scope="col"
@@ -88,6 +90,9 @@ export default function AdminFacilitiesPage() {
                   }
                 >
                   <td className="px-3 py-2.5 font-medium">{facility.name}</td>
+                  <td className="px-3 py-2.5">
+                    {organizations.data?.find((item) => item.id === facility.organization_id)?.name ?? "—"}
+                  </td>
                   <td className="px-3 py-2.5">{ZONE_LABEL[facility.zone]}</td>
                   <td className="px-3 py-2.5">{KIND_LABEL[facility.facility_kind]}</td>
                   <td className="px-3 py-2.5 font-mono">{facility.capacity}</td>
@@ -110,7 +115,10 @@ export default function AdminFacilitiesPage() {
 
         <div className="space-y-6">
           {creating && canManageCatalog ? (
-            <FacilityForm onDone={() => setCreating(false)} />
+            <FacilityForm
+              organizations={organizations.data ?? []}
+              onDone={() => setCreating(false)}
+            />
           ) : editing ? (
             <>
               {canManageCatalog ? (
@@ -118,6 +126,7 @@ export default function AdminFacilitiesPage() {
                   <FacilityForm
                     key={editing.id}
                     facility={editing}
+                    organizations={organizations.data ?? []}
                     onDone={() => setEditing(null)}
                   />
                   <ScheduleEditor key={`schedule-${editing.id}`} facility={editing} />
@@ -140,11 +149,20 @@ export default function AdminFacilitiesPage() {
   );
 }
 
-function FacilityForm({ facility, onDone }: { facility?: Facility; onDone: () => void }) {
+function FacilityForm({
+  facility,
+  organizations,
+  onDone,
+}: {
+  facility?: Facility;
+  organizations: { id: string; name: string; is_active: boolean }[];
+  onDone: () => void;
+}) {
   const save = useSaveFacility();
   const isEdit = Boolean(facility);
 
   const [form, setForm] = useState({
+    organization_id: facility?.organization_id ?? "",
     slug: facility?.slug ?? "",
     name: facility?.name ?? "",
     description: facility?.description ?? "",
@@ -185,7 +203,10 @@ function FacilityForm({ facility, onDone }: { facility?: Facility; onDone: () =>
       map_width: form.map_width || null,
       map_depth: form.map_depth || null,
     };
-    if (!isEdit) body.slug = form.slug;
+    if (!isEdit) {
+      body.organization_id = form.organization_id;
+      body.slug = form.slug;
+    }
 
     await save.mutateAsync({ id: facility?.id, body });
     onDone();
@@ -196,6 +217,25 @@ function FacilityForm({ facility, onDone }: { facility?: Facility; onDone: () =>
       <TechnicalLabel>{isEdit ? "EDITAR INSTALACION" : "NUEVA INSTALACION"}</TechnicalLabel>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        {!isEdit ? (
+          <Field label="Organización" htmlFor="fa-organization" className="sm:col-span-2">
+            <Select
+              id="fa-organization"
+              required
+              value={form.organization_id}
+              onChange={(event) => update("organization_id", event.target.value)}
+            >
+              <option value="">Selecciona una organización</option>
+              {organizations
+                .filter((organization) => organization.is_active)
+                .map((organization) => (
+                  <option key={organization.id} value={organization.id}>
+                    {organization.name}
+                  </option>
+                ))}
+            </Select>
+          </Field>
+        ) : null}
         {!isEdit ? (
           <Field
             label="Slug"

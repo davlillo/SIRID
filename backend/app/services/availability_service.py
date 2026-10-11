@@ -83,8 +83,17 @@ class AvailabilityService:
         self.reservations = ReservationRepository(session)
         self.rates = RateRepository(session)
 
-    async def for_date(self, facility_id: UUID, target_date: date, now: datetime) -> Availability:
-        facility = await self.facilities.get(facility_id)
+    async def for_date(
+        self,
+        facility_id: UUID,
+        target_date: date,
+        now: datetime,
+        *,
+        organization_id: UUID | None = None,
+    ) -> Availability:
+        facility = await self.facilities.get(
+            facility_id, organization_id=organization_id
+        )
         tz = settings.timezone
 
         windows = [
@@ -105,14 +114,19 @@ class AvailabilityService:
         busy = [
             Interval(row.starts_at, row.ends_at)
             for row in await self.reservations.active_in_period(
-                facility_id, day_start, day_start + timedelta(days=1)
+                facility_id,
+                day_start,
+                day_start + timedelta(days=1),
+                organization_id=facility.organization_id,
             )
         ]
 
         slots: list[Slot] = []
         for window in windows:
             for slot in split_into_slots(window.interval, window.slot_minutes):
-                slots.append(self._classify(slot, busy, rate, facility.is_bookable, now))
+                slots.append(
+                    self._classify(slot, busy, rate, facility.is_bookable, now)
+                )
 
         return Availability(
             facility_id=facility_id,
@@ -132,6 +146,8 @@ class AvailabilityService:
         start_time: time,
         end_time: time,
         now: datetime,
+        *,
+        organization_id: UUID | None = None,
     ) -> RangeCheck:
         """Veredicto para un rango concreto y, si no se puede reservar, huecos del mismo dia.
 
@@ -139,14 +155,22 @@ class AvailabilityService:
         """
         tz = settings.timezone
         starts_at = datetime.combine(target_date, start_time, tzinfo=tz)
-        end_date = target_date + timedelta(days=1) if end_time == time.min else target_date
+        end_date = (
+            target_date + timedelta(days=1) if end_time == time.min else target_date
+        )
         ends_at = datetime.combine(end_date, end_time, tzinfo=tz)
         if ends_at <= starts_at:
-            raise InvalidReservationPeriod("La hora de fin debe ser posterior a la de inicio.")
+            raise InvalidReservationPeriod(
+                "La hora de fin debe ser posterior a la de inicio."
+            )
         requested = Interval(starts_at, ends_at)
 
-        facility = await self.facilities.get(facility_id)
-        day = await self.for_date(facility_id, target_date, now)
+        facility = await self.facilities.get(
+            facility_id, organization_id=organization_id
+        )
+        day = await self.for_date(
+            facility_id, target_date, now, organization_id=organization_id
+        )
         rate = await self.rates.active_on(facility_id, target_date)
 
         container = next(
@@ -183,13 +207,21 @@ class AvailabilityService:
             status = "AVAILABLE"
 
         def quote(interval: Interval) -> Decimal | None:
-            return quote_amount(rate.amount, rate.minimum_minutes, interval) if rate else None
+            return (
+                quote_amount(rate.amount, rate.minimum_minutes, interval)
+                if rate
+                else None
+            )
 
         alternatives: list[QuotedInterval] = []
         if status in {"BUSY", "PAST", "OUTSIDE_HOURS"}:
             alternatives = [
-                QuotedInterval(starts_at=item.start, ends_at=item.end, amount=quote(item))
-                for item in suggest_alternatives(day.operating_windows, day.busy, requested, now)
+                QuotedInterval(
+                    starts_at=item.start, ends_at=item.end, amount=quote(item)
+                )
+                for item in suggest_alternatives(
+                    day.operating_windows, day.busy, requested, now
+                )
             ]
 
         return RangeCheck(
@@ -219,9 +251,7 @@ class AvailabilityService:
     ) -> Slot:
         if slot.start <= now:
             status = "PAST"
-        elif any(slot.overlaps(block) for block in busy):
-            status = "BUSY"
-        elif not is_bookable:
+        elif any(slot.overlaps(block) for block in busy) or not is_bookable:
             status = "BUSY"
         else:
             status = "AVAILABLE"
@@ -231,4 +261,6 @@ class AvailabilityService:
             if rate and status == "AVAILABLE"
             else None
         )
-        return Slot(starts_at=slot.start, ends_at=slot.end, status=status, amount=amount)
+        return Slot(
+            starts_at=slot.start, ends_at=slot.end, status=status, amount=amount
+        )

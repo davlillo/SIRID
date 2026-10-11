@@ -157,7 +157,7 @@ function ReservationRow({ reservation }: { reservation: Reservation }) {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
             <Link
-              href={`/instalaciones/${reservation.facility.slug}`}
+              href={`/instalaciones/${reservation.facility.slug}?organization=${reservation.facility.organization_id}`}
               className="font-display text-xl font-semibold hover:text-terracotta"
             >
               {reservation.facility.name}
@@ -175,7 +175,7 @@ function ReservationRow({ reservation }: { reservation: Reservation }) {
           {reservation.admin_note ? (
             <p className="mt-2 border-l-2 border-terracotta pl-3 text-sm text-charcoal/70">
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-olive">
-                Nota del administrador:
+                Nota del encargado:
               </span>{" "}
               {reservation.admin_note}
             </p>

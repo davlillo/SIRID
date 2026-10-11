@@ -39,7 +39,7 @@ export default function AdminReservationsPage() {
   });
 
   return (
-    <AdminLayout>
+    <AdminLayout access="reservations">
       <TechnicalLabel>RESERVATIONS_01</TechnicalLabel>
       <h1 className="mt-3 font-display text-4xl font-semibold tracking-[-0.03em]">Reservas</h1>
 
@@ -233,7 +233,7 @@ function DetailPanel({
 
       <div className="mt-5 space-y-3">
         {canCancel ? (
-          <Field label="Nota administrativa (opcional)" htmlFor="admin-note">
+          <Field label="Nota del encargado (opcional)" htmlFor="admin-note">
             <Textarea
               id="admin-note"
               maxLength={1000}

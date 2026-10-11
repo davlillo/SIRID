@@ -27,6 +27,7 @@ export type SlotStatus = "AVAILABLE" | "BUSY" | "PAST";
 
 export type User = {
   id: string;
+  organization_id: string;
   email: string;
   name: string;
   avatar_url: string | null;
@@ -35,6 +36,7 @@ export type User = {
 
 export type Client = {
   id: string;
+  organization_id: string;
   first_name: string;
   last_name: string;
   dui: string;
@@ -51,6 +53,7 @@ export type FacilityImage = {
 
 export type Facility = {
   id: string;
+  organization_id: string;
   slug: string;
   name: string;
   description: string;
@@ -68,6 +71,25 @@ export type Facility = {
   map_width: string | null;
   map_depth: string | null;
   images: FacilityImage[];
+};
+
+export type Organization = {
+  id: string;
+  name: string;
+  slug: string;
+  email_domain: string | null;
+  is_active: boolean;
+};
+
+export type PublicOrganization = Pick<Organization, "id" | "name" | "slug">;
+
+export type ManagedUser = {
+  id: string;
+  organization_id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  is_active: boolean;
 };
 
 export type ScheduleInput = {
@@ -152,6 +174,7 @@ export type Reservation = {
   id: string;
   facility: {
     id: string;
+    organization_id: string;
     slug: string;
     name: string;
     facility_kind: FacilityKind;

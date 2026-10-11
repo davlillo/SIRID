@@ -14,6 +14,12 @@ class UserRepository:
     async def get_by_id(self, user_id: UUID) -> UserModel | None:
         return await self.session.get(UserModel, user_id)
 
+    async def list_all(self) -> list[UserModel]:
+        rows = await self.session.scalars(
+            select(UserModel).order_by(UserModel.created_at.desc())
+        )
+        return list(rows.all())
+
     async def get_by_google_subject(self, subject: str) -> UserModel | None:
         return await self.session.scalar(
             select(UserModel).where(UserModel.google_subject == subject)
@@ -25,9 +31,7 @@ class UserRepository:
         )
 
     async def get_by_dui(self, dui: str) -> UserModel | None:
-        return await self.session.scalar(
-            select(UserModel).where(UserModel.dui == dui)
-        )
+        return await self.session.scalar(select(UserModel).where(UserModel.dui == dui))
 
     async def get_registered_client(self, client_id: UUID) -> UserModel | None:
         return await self.session.scalar(
