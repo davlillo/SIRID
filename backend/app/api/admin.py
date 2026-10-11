@@ -1,15 +1,21 @@
 """Operaciones administrativas. Todo el router exige rol ADMIN."""
 
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
 
-from app.api.deps import AdminUser, CatalogStaffUser, SessionDep, require_admin
+from app.api.deps import (
+    AdminUser,
+    CatalogStaffUser,
+    ReservationStaffUser,
+    SessionDep,
+    require_reservation_staff,
+)
 from app.api.notifications import schedule_notification
 from app.core.config import settings
-from app.domain.enums import FacilityKind, ReservationStatus, SportType, Zone
+from app.domain.enums import FacilityKind, ReservationStatus, SportType, UserRole, Zone
 from app.repositories.reservation_repository import ReservationRepository
 from app.schemas.admin import (
     AdminStatsResponse,
@@ -30,8 +36,8 @@ from app.schemas.facility import (
     ScheduleResponse,
 )
 from app.schemas.reservation import AdminReservationResponse, ReservationNoteRequest
-from app.services.facility_service import FacilityService
 from app.services.client_service import ClientService
+from app.services.facility_service import FacilityService
 from app.services.rate_service import RateService
 from app.services.reservation_service import ReservationService
 from app.services.schedule_service import ScheduleService
@@ -45,16 +51,14 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 @router.get("/clients", response_model=list[ClientResponse])
-async def list_clients(
-    session: SessionDep, staff: CatalogStaffUser
-) -> list[ClientResponse]:
+async def list_clients(session: SessionDep, staff: AdminUser) -> list[ClientResponse]:
     clients = await ClientService(session).list_registered()
     return [ClientResponse.model_validate(client) for client in clients]
 
 
 @router.post("/clients", response_model=ClientResponse, status_code=201)
 async def create_client(
-    payload: ClientCreate, session: SessionDep, staff: CatalogStaffUser
+    payload: ClientCreate, session: SessionDep, staff: AdminUser
 ) -> ClientResponse:
     client = await ClientService(session).create(payload.model_dump())
     return ClientResponse.model_validate(client)
@@ -69,7 +73,7 @@ async def update_client(
     client_id: UUID,
     payload: ClientUpdate,
     session: SessionDep,
-    staff: CatalogStaffUser,
+    staff: AdminUser,
 ) -> ClientResponse:
     client = await ClientService(session).update(
         client_id, payload.model_dump(exclude_unset=True)
@@ -85,10 +89,10 @@ async def update_client(
 @router.get(
     "/reservations",
     response_model=Page[AdminReservationResponse],
-    dependencies=[Depends(require_admin)],
 )
 async def list_reservations(
     session: SessionDep,
+    encargado: ReservationStaffUser,
     status: ReservationStatus | None = None,
     facility_id: UUID | None = None,
     date_from: date | None = None,
@@ -98,9 +102,12 @@ async def list_reservations(
 ) -> Page[AdminReservationResponse]:
     tz = settings.timezone
     items, total = await ReservationRepository(session).list_for_admin(
+        organization_id=encargado.organization_id,
         status=status,
         facility_id=facility_id,
-        date_from=datetime.combine(date_from, time.min, tzinfo=tz) if date_from else None,
+        date_from=datetime.combine(date_from, time.min, tzinfo=tz)
+        if date_from
+        else None,
         # `date_to` es inclusivo para el usuario: se traduce al dia siguiente.
         date_to=(
             datetime.combine(date_to + timedelta(days=1), time.min, tzinfo=tz)
@@ -118,19 +125,26 @@ async def list_reservations(
     )
 
 
-@router.post("/reservations/{reservation_id}/confirm", response_model=AdminReservationResponse)
+@router.post(
+    "/reservations/{reservation_id}/confirm", response_model=AdminReservationResponse
+)
 async def confirm_reservation(
-    reservation_id: UUID, admin: AdminUser, session: SessionDep, background: BackgroundTasks
+    reservation_id: UUID,
+    admin: ReservationStaffUser,
+    session: SessionDep,
+    background: BackgroundTasks,
 ) -> AdminReservationResponse:
     reservation = await ReservationService(session).confirm(reservation_id, admin)
     schedule_notification(background, reservation.id, "reservation_confirmed")
     return AdminReservationResponse.model_validate(reservation)
 
 
-@router.post("/reservations/{reservation_id}/cancel", response_model=AdminReservationResponse)
+@router.post(
+    "/reservations/{reservation_id}/cancel", response_model=AdminReservationResponse
+)
 async def cancel_reservation(
     reservation_id: UUID,
-    admin: AdminUser,
+    admin: ReservationStaffUser,
     session: SessionDep,
     background: BackgroundTasks,
     payload: ReservationNoteRequest | None = None,
@@ -142,9 +156,14 @@ async def cancel_reservation(
     return AdminReservationResponse.model_validate(reservation)
 
 
-@router.post("/reservations/{reservation_id}/complete", response_model=AdminReservationResponse)
+@router.post(
+    "/reservations/{reservation_id}/complete", response_model=AdminReservationResponse
+)
 async def complete_reservation(
-    reservation_id: UUID, admin: AdminUser, session: SessionDep, background: BackgroundTasks
+    reservation_id: UUID,
+    admin: ReservationStaffUser,
+    session: SessionDep,
+    background: BackgroundTasks,
 ) -> AdminReservationResponse:
     reservation = await ReservationService(session).complete(reservation_id, admin)
     schedule_notification(background, reservation.id, "reservation_completed")
@@ -154,12 +173,14 @@ async def complete_reservation(
 @router.get(
     "/reservations/{reservation_id}/events",
     response_model=list[ReservationEventResponse],
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_reservation_staff)],
 )
 async def list_reservation_events(
-    reservation_id: UUID, session: SessionDep
+    reservation_id: UUID, session: SessionDep, encargado: ReservationStaffUser
 ) -> list[ReservationEventResponse]:
-    events = await ReservationRepository(session).list_events(reservation_id)
+    events = await ReservationRepository(session).list_events(
+        reservation_id, organization_id=encargado.organization_id
+    )
     return [ReservationEventResponse.model_validate(event) for event in events]
 
 
@@ -167,12 +188,14 @@ async def list_reservation_events(
     "/reservations/{reservation_id}/notifications",
     response_model=list[NotificationLogResponse],
     summary="Historial de correos, incluyendo fallos SMTP pendientes de reintento",
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_reservation_staff)],
 )
 async def list_reservation_notifications(
-    reservation_id: UUID, session: SessionDep
+    reservation_id: UUID, session: SessionDep, encargado: ReservationStaffUser
 ) -> list[NotificationLogResponse]:
-    logs = await ReservationRepository(session).list_notification_logs(reservation_id)
+    logs = await ReservationRepository(session).list_notification_logs(
+        reservation_id, organization_id=encargado.organization_id
+    )
     return [NotificationLogResponse.model_validate(log) for log in logs]
 
 
@@ -182,7 +205,10 @@ async def list_reservation_notifications(
     summary="Reintenta el correo correspondiente al estado actual",
 )
 async def retry_notification(
-    reservation_id: UUID, admin: AdminUser, session: SessionDep, background: BackgroundTasks
+    reservation_id: UUID,
+    admin: ReservationStaffUser,
+    session: SessionDep,
+    background: BackgroundTasks,
 ) -> dict[str, str]:
     reservation = await ReservationService(session).get_for_actor(reservation_id, admin)
     template = {
@@ -203,19 +229,30 @@ async def retry_notification(
 @router.get(
     "/stats",
     response_model=AdminStatsResponse,
-    dependencies=[Depends(require_admin)],
 )
-async def read_stats(session: SessionDep) -> AdminStatsResponse:
+async def read_stats(
+    session: SessionDep, encargado: ReservationStaffUser
+) -> AdminStatsResponse:
     tz = settings.timezone
     repository = ReservationRepository(session)
     today = datetime.now(tz).date()
     day_start = datetime.combine(today, time.min, tzinfo=tz)
     day_end = day_start + timedelta(days=1)
 
-    pending = await repository.count_by_status(ReservationStatus.PENDING)
-    confirmed_today = await repository.count_by_status(ReservationStatus.CONFIRMED)
-    reservations_today, quoted_today = await repository.summary_between(day_start, day_end)
-    _, bookable = await FacilityService(session).list_catalog(only_bookable=True, limit=100)
+    pending = await repository.count_by_status(
+        ReservationStatus.PENDING, organization_id=encargado.organization_id
+    )
+    confirmed_today = await repository.count_by_status(
+        ReservationStatus.CONFIRMED, organization_id=encargado.organization_id
+    )
+    reservations_today, quoted_today = await repository.summary_between(
+        day_start, day_end, organization_id=encargado.organization_id
+    )
+    _, bookable = await FacilityService(session).list_catalog(
+        only_bookable=True,
+        organization_id=encargado.organization_id,
+        limit=100,
+    )
 
     # Ocupacion aproximada: reservas activas de hoy sobre 12 bloques por espacio.
     capacity = max(bookable * 12, 1)
@@ -248,6 +285,9 @@ async def list_all_facilities(
         zone=zone,
         sport_type=sport_type.value if sport_type else None,
         facility_kind=facility_kind.value if facility_kind else None,
+        organization_id=(
+            staff.organization_id if staff.role == UserRole.ENCARGADO else None
+        ),
         include_inactive=True,
         page=page,
         limit=limit,
@@ -262,7 +302,7 @@ async def list_all_facilities(
 
 @router.get("/facilities/{facility_id}", response_model=FacilityDetailResponse)
 async def read_admin_facility(
-    facility_id: UUID, session: SessionDep, staff: CatalogStaffUser
+    facility_id: UUID, session: SessionDep, staff: AdminUser
 ) -> FacilityDetailResponse:
     facility = await FacilityService(session).get(facility_id, include_inactive=True)
     return FacilityDetailResponse.model_validate(facility)
@@ -270,7 +310,7 @@ async def read_admin_facility(
 
 @router.post("/facilities", response_model=FacilityDetailResponse, status_code=201)
 async def create_facility(
-    payload: FacilityCreate, session: SessionDep, staff: CatalogStaffUser
+    payload: FacilityCreate, session: SessionDep, staff: AdminUser
 ) -> FacilityDetailResponse:
     facility = await FacilityService(session).create(payload.model_dump())
     return FacilityDetailResponse.model_validate(facility)
@@ -281,7 +321,7 @@ async def update_facility(
     facility_id: UUID,
     payload: FacilityUpdate,
     session: SessionDep,
-    staff: CatalogStaffUser,
+    staff: AdminUser,
 ) -> FacilityDetailResponse:
     facility = await FacilityService(session).update(
         facility_id, payload.model_dump(exclude_unset=True)
@@ -298,7 +338,7 @@ async def replace_schedules(
     facility_id: UUID,
     payload: ScheduleReplaceRequest,
     session: SessionDep,
-    staff: CatalogStaffUser,
+    staff: AdminUser,
 ) -> list[ScheduleResponse]:
     await FacilityService(session).get(facility_id, include_inactive=True)
     schedules = await ScheduleService(session).replace(
@@ -307,12 +347,14 @@ async def replace_schedules(
     return [ScheduleResponse.model_validate(schedule) for schedule in schedules]
 
 
-@router.post("/facilities/{facility_id}/rates", response_model=RateResponse, status_code=201)
+@router.post(
+    "/facilities/{facility_id}/rates", response_model=RateResponse, status_code=201
+)
 async def create_rate(
     facility_id: UUID,
     payload: RateCreate,
     session: SessionDep,
-    staff: CatalogStaffUser,
+    staff: AdminUser,
 ) -> RateResponse:
     await FacilityService(session).get(facility_id, include_inactive=True)
     rate = await RateService(session).create(facility_id, payload.model_dump())
@@ -329,7 +371,7 @@ async def publish_rate(
     facility_id: UUID,
     payload: RatePublishRequest,
     session: SessionDep,
-    staff: CatalogStaffUser,
+    staff: AdminUser,
 ) -> RateResponse:
     await FacilityService(session).get(facility_id, include_inactive=True)
     rate = await RateService(session).publish_update(

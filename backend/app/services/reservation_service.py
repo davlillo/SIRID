@@ -5,7 +5,7 @@ correo se dispara despues del commit, desde la capa HTTP.
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
@@ -14,10 +14,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.domain.enums import ReservationEventType, ReservationStatus, UserRole
 from app.domain.errors import (
-    AdminRequired,
     NotReservationOwner,
     ReservationConflict,
     ReservationNotFound,
+    ReservationStaffRequired,
 )
 from app.domain.rules import (
     assert_completable,
@@ -59,10 +59,19 @@ class ReservationService:
         self.rates = RateService(session)
         self.audit = AuditService(self.repository)
 
-    async def create(self, customer: UserModel, command: CreateReservation) -> ReservationModel:
-        now = datetime.now(timezone.utc)
+    async def create(
+        self, customer: UserModel, command: CreateReservation
+    ) -> ReservationModel:
+        now = datetime.now(UTC)
 
-        facility = await self.facilities.require_bookable(command.facility_id)  # RN-10
+        facility = await self.facilities.require_bookable(
+            command.facility_id, organization_id=customer.organization_id
+        )  # RN-10
+        if (
+            customer.role != UserRole.CLIENT
+            or customer.organization_id != facility.organization_id
+        ):
+            raise ReservationNotFound("The requested facility does not exist.")
         interval = assert_period(command.starts_at, command.ends_at, now)  # RN-03
         window = assert_within_operating_hours(  # RN-02
             interval,
@@ -73,13 +82,19 @@ class ReservationService:
         quote = await self.rates.quote(facility.id, interval)  # RN-04
 
         # Comprobacion previa: da un mensaje util, no garantiza nada por si sola.
-        if await self.repository.active_in_period(facility.id, interval.start, interval.end):
+        if await self.repository.active_in_period(
+            facility.id,
+            interval.start,
+            interval.end,
+            organization_id=facility.organization_id,
+        ):
             raise ReservationConflict(
                 "The facility is not available for the requested period."
             )
 
         reservation = self.repository.add(
             ReservationModel(
+                organization_id=facility.organization_id,
                 customer_id=customer.id,
                 facility_id=facility.id,
                 starts_at=interval.start,
@@ -107,19 +122,34 @@ class ReservationService:
         await self.session.refresh(reservation)
         return reservation
 
-    async def get_for_actor(self, reservation_id: UUID, actor: UserModel) -> ReservationModel:
-        """RN-06: el cliente solo ve las suyas. Una ajena responde 404."""
-        reservation = await self.repository.get_by_id(reservation_id)
+    async def get_for_actor(
+        self, reservation_id: UUID, actor: UserModel
+    ) -> ReservationModel:
+        """Clientes ven las propias; encargados, reservas de su organización."""
+        if actor.role == UserRole.ADMIN:
+            raise ReservationNotFound("The requested reservation does not exist.")
+        reservation = await self.repository.get_by_id(
+            reservation_id, organization_id=actor.organization_id
+        )
         if reservation is None:
             raise ReservationNotFound("The requested reservation does not exist.")
-        if actor.role != UserRole.ADMIN and reservation.customer_id != actor.id:
+        if actor.role == UserRole.CLIENT and reservation.customer_id != actor.id:
             raise NotReservationOwner("The requested reservation does not exist.")
+        if actor.role not in {UserRole.CLIENT, UserRole.ENCARGADO}:
+            raise ReservationNotFound("The requested reservation does not exist.")
         return reservation
 
     async def list_for_customer(
         self, customer: UserModel, *, page: int = 1, limit: int = 20
     ) -> tuple[list[ReservationModel], int]:
-        return await self.repository.list_for_customer(customer.id, page=page, limit=limit)
+        if customer.role != UserRole.CLIENT:
+            raise ReservationNotFound("The requested reservation does not exist.")
+        return await self.repository.list_for_customer(
+            customer.id,
+            organization_id=customer.organization_id,
+            page=page,
+            limit=limit,
+        )
 
     async def cancel(
         self, reservation_id: UUID, actor: UserModel, note: str | None = None
@@ -129,33 +159,43 @@ class ReservationService:
             reservation, ReservationStatus.CANCELLED, actor, admin_note=note
         )
 
-    async def confirm(self, reservation_id: UUID, admin: UserModel) -> ReservationModel:
-        """RN-07: solo el administrador confirma."""
-        reservation = await self._admin_reservation(reservation_id, admin)
-        return await self._transition(reservation, ReservationStatus.CONFIRMED, admin)
+    async def confirm(
+        self, reservation_id: UUID, encargado: UserModel
+    ) -> ReservationModel:
+        """RN-07: solo el encargado de la misma organización confirma."""
+        reservation = await self._reservation_for_encargado(reservation_id, encargado)
+        return await self._transition(
+            reservation, ReservationStatus.CONFIRMED, encargado
+        )
 
     async def admin_cancel(
-        self, reservation_id: UUID, admin: UserModel, note: str | None = None
+        self, reservation_id: UUID, encargado: UserModel, note: str | None = None
     ) -> ReservationModel:
-        reservation = await self._admin_reservation(reservation_id, admin)
+        reservation = await self._reservation_for_encargado(reservation_id, encargado)
         return await self._transition(
-            reservation, ReservationStatus.CANCELLED, admin, admin_note=note
+            reservation, ReservationStatus.CANCELLED, encargado, admin_note=note
         )
 
-    async def complete(self, reservation_id: UUID, admin: UserModel) -> ReservationModel:
+    async def complete(
+        self, reservation_id: UUID, encargado: UserModel
+    ) -> ReservationModel:
         """RN-09: completar exige que el periodo ya haya terminado."""
-        reservation = await self._admin_reservation(reservation_id, admin)
-        assert_completable(
-            reservation.status, reservation.ends_at, datetime.now(timezone.utc)
-        )
+        reservation = await self._reservation_for_encargado(reservation_id, encargado)
+        assert_completable(reservation.status, reservation.ends_at, datetime.now(UTC))
         return await self._transition(
-            reservation, ReservationStatus.COMPLETED, admin, checked=True
+            reservation, ReservationStatus.COMPLETED, encargado, checked=True
         )
 
-    async def _admin_reservation(self, reservation_id: UUID, admin: UserModel) -> ReservationModel:
-        if admin.role != UserRole.ADMIN:
-            raise AdminRequired("This operation requires an administrator.")
-        reservation = await self.repository.get_by_id(reservation_id)
+    async def _reservation_for_encargado(
+        self, reservation_id: UUID, encargado: UserModel
+    ) -> ReservationModel:
+        if encargado.role != UserRole.ENCARGADO:
+            raise ReservationStaffRequired(
+                "Only reservation staff can manage reservations."
+            )
+        reservation = await self.repository.get_by_id(
+            reservation_id, organization_id=encargado.organization_id
+        )
         if reservation is None:
             raise ReservationNotFound("The requested reservation does not exist.")
         return reservation
@@ -174,7 +214,7 @@ class ReservationService:
             assert_transition(previous, target)
 
         reservation.status = target
-        if admin_note and actor.role == UserRole.ADMIN:
+        if admin_note and actor.role == UserRole.ENCARGADO:
             reservation.admin_note = admin_note
 
         self.audit.record(

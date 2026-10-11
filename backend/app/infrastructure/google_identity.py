@@ -32,11 +32,15 @@ class GoogleVerifier(Protocol):
 
 class GoogleIdentityVerifier:
     def __init__(self, client_id: str | None = None) -> None:
-        self.client_id = client_id if client_id is not None else settings.google_client_id
+        self.client_id = (
+            client_id if client_id is not None else settings.google_client_id
+        )
 
     def verify(self, credential: str) -> GoogleIdentity:
         if not self.client_id:
-            raise InvalidGoogleCredential("Google sign-in is not configured on this server.")
+            raise InvalidGoogleCredential(
+                "Google sign-in is not configured on this server."
+            )
 
         try:
             claims = id_token.verify_oauth2_token(
@@ -44,7 +48,9 @@ class GoogleIdentityVerifier:
             )
         except ValueError as error:
             # Cubre firma invalida, audiencia incorrecta y token expirado.
-            raise InvalidGoogleCredential("The Google credential could not be verified.") from error
+            raise InvalidGoogleCredential(
+                "The Google credential could not be verified."
+            ) from error
 
         if claims.get("iss") not in ACCEPTED_ISSUERS:
             raise InvalidGoogleCredential("Unexpected token issuer.")

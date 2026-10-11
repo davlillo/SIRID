@@ -4,11 +4,21 @@ import { TechnicalLabel } from "@/components/atoms/technical-label";
 import { KIND_LABEL, SPORT_LABEL, ZONE_LABEL, facilityImage } from "@/lib/format";
 import type { Facility } from "@/lib/types";
 
-export function FacilityCard({ facility, index }: { facility: Facility; index: number }) {
+export function FacilityCard({
+  facility,
+  index,
+  organizationSlug,
+}: {
+  facility: Facility;
+  index: number;
+  organizationSlug: string;
+}) {
+  const href = `/instalaciones/${facility.slug}?organization=${encodeURIComponent(organizationSlug)}`;
+
   return (
     <article className="group flex flex-col border border-charcoal/20 bg-ivory transition-colors duration-base ease-technical hover:border-charcoal">
       <Link
-        href={`/instalaciones/${facility.slug}`}
+        href={href}
         className="flex h-full flex-col focus-visible:outline-none"
       >
         <div className="relative aspect-[8/5] overflow-hidden border-b border-charcoal/20 bg-sand">

@@ -33,6 +33,18 @@ Base URL local: `http://localhost:8000/v1`
 | GET | `/facilities/{facility_id}/availability?date=YYYY-MM-DD` | Publico |
 | GET | `/facilities/{facility_id}/availability/check?date=YYYY-MM-DD&start=HH:MM&end=HH:MM` | Publico |
 
+Las rutas legacy `/facilities...` quedan limitadas a la organización bootstrap. El catálogo multi-organización se resuelve por slug o identificador explícito:
+
+| Metodo | Ruta | Auth |
+|---|---|---|
+| GET | `/organizations` | Público; lista slug y nombre de organizaciones activas |
+| GET | `/organizations/{slug}/facilities` | Público; solo esa organización |
+| GET | `/organizations/{slug}/facilities/{facility_slug}` | Público; solo esa organización |
+| GET | `/organizations/{slug}/facilities/{facility_id}/availability?date=YYYY-MM-DD` | Público, rate limit |
+| GET | `/organizations/{slug}/facilities/{facility_id}/availability/check?...` | Público, rate limit |
+
+Las vistas públicas solicitan una organización explícita; la API no agrega catálogos de distintos tenants.
+
 La disponibilidad debe devolver horarios operativos, bloques ocupados y tarifas aplicables. No debe exponer datos personales de reservas ajenas.
 
 ### Consulta de un rango concreto
@@ -86,8 +98,8 @@ La disponibilidad debe devolver horarios operativos, bloques ocupados y tarifas 
 |---|---|---|
 | POST | `/reservations` | Cliente |
 | GET | `/reservations/me` | Cliente |
-| GET | `/reservations/{reservation_id}` | Propietario o admin |
-| POST | `/reservations/{reservation_id}/cancel` | Propietario o admin |
+| GET | `/reservations/{reservation_id}` | Propietario o encargado de la organización |
+| POST | `/reservations/{reservation_id}/cancel` | Propietario o encargado de la organización |
 
 Ejemplo de creacion:
 
@@ -104,22 +116,27 @@ Ejemplo de creacion:
 
 | Metodo | Ruta | Roles |
 |---|---|---|
-| GET | `/admin/reservations` | ADMIN |
-| POST | `/admin/reservations/{id}/confirm` | ADMIN |
-| POST | `/admin/reservations/{id}/cancel` | ADMIN |
-| POST | `/admin/reservations/{id}/complete` | ADMIN |
-| GET | `/admin/clients` | ADMIN, ENCARGADO |
-| POST | `/admin/clients` | ADMIN, ENCARGADO |
-| GET | `/admin/facilities` | ADMIN, ENCARGADO |
-| GET | `/admin/facilities/{id}` | ADMIN, ENCARGADO |
+| GET | `/admin/reservations` | ENCARGADO, solo su organización |
+| POST | `/admin/reservations/{id}/confirm` | ENCARGADO, solo su organización |
+| POST | `/admin/reservations/{id}/cancel` | ENCARGADO, solo su organización |
+| POST | `/admin/reservations/{id}/complete` | ENCARGADO, solo su organización |
+| GET | `/admin/clients` | ADMIN global |
+| POST | `/admin/clients` | ADMIN global |
+| GET | `/admin/facilities` | ADMIN global; ENCARGADO solo lectura de su organización |
+| GET | `/admin/facilities/{id}` | ADMIN global |
 | POST | `/admin/facilities` | ADMIN |
 | PATCH | `/admin/facilities/{id}` | ADMIN |
 | POST | `/admin/facilities/{id}/schedules` | ADMIN |
-| POST | `/admin/facilities/{id}/rates` | ADMIN, ENCARGADO |
-| POST | `/admin/facilities/{id}/rates/publish` | ADMIN, ENCARGADO |
+| POST | `/admin/facilities/{id}/rates` | ADMIN |
+| POST | `/admin/facilities/{id}/rates/publish` | ADMIN |
+| GET/POST/PATCH | `/admin/organizations[/{id}]` | ADMIN global |
+| GET/POST/PATCH | `/admin/users[/{id}]` | ADMIN global |
+| GET | `/admin/stats` | ENCARGADO, solo su organización |
 
 `rates/publish` cierra o desactiva la tarifa vigente e inserta una nueva version. Las
 reservas existentes conservan el importe cotizado y las nuevas usan el monto publicado.
+
+Las operaciones de reserva nunca permiten a `ADMIN` consultar ni modificar reservas. El administrador sí puede gestionar el catálogo de cualquier organización; `ENCARGADO` solo puede gestionar reservas de la organización asociada a su cuenta.
 
 ## Reglas de API
 

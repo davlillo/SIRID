@@ -8,11 +8,12 @@ import { SessionMenu } from "@/features/auth/auth-button";
 import { cn } from "@/lib/cn";
 
 const LINKS = [
+  { href: "/organizaciones", label: "Organizaciones" },
   { href: "/instalaciones", label: "Instalaciones" },
   { href: "/mapa", label: "Mapa" },
 ];
 
-export function SiteHeader() {
+export function SiteHeader({ organizationSlug }: { organizationSlug?: string }) {
   const pathname = usePathname();
 
   return (
@@ -21,19 +22,27 @@ export function SiteHeader() {
         <BrandMark />
       </Link>
       <nav className="flex items-center gap-5 sm:gap-6">
-        {LINKS.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            aria-current={pathname.startsWith(link.href) ? "page" : undefined}
-            className={cn(
-              "text-sm transition-colors duration-fast hover:text-terracotta",
-              pathname.startsWith(link.href) && "font-semibold text-terracotta",
-            )}
-          >
-            {link.label}
-          </Link>
-        ))}
+        {LINKS.map((link) => {
+          const href =
+            link.href === "/organizaciones"
+              ? link.href
+              : organizationSlug
+                ? `${link.href}?organization=${encodeURIComponent(organizationSlug)}`
+                : "/organizaciones";
+          return (
+            <Link
+              key={link.href}
+              href={href}
+              aria-current={pathname.startsWith(link.href) ? "page" : undefined}
+              className={cn(
+                "text-sm transition-colors duration-fast hover:text-terracotta",
+                pathname.startsWith(link.href) && "font-semibold text-terracotta",
+              )}
+            >
+              {link.label}
+            </Link>
+          );
+        })}
         <SessionMenu />
       </nav>
     </header>

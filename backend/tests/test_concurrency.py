@@ -11,17 +11,17 @@ from datetime import datetime, time, timedelta
 from decimal import Decimal
 
 import pytest
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy import func, select
-from sqlalchemy.exc import IntegrityError
-
 from app.core.config import settings
 from app.core.security import issue_session_token
 from app.domain.enums import ReservationStatus
 from app.infrastructure.database import SessionLocal
 from app.infrastructure.models import ReservationModel
 from app.main import app
-from tests.conftest import requires_database
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
+
+from tests.conftest import TEST_ORGANIZATION_ID, requires_database
 
 pytestmark = requires_database
 
@@ -32,9 +32,17 @@ def period(hour: int = 18) -> tuple[datetime, datetime]:
     return start, start + timedelta(hours=1)
 
 
-def reservation_row(customer_id, facility_id, starts_at, ends_at, status) -> ReservationModel:
+def reservation_row(
+    customer_id,
+    facility_id,
+    starts_at,
+    ends_at,
+    status,
+    organization_id=TEST_ORGANIZATION_ID,
+) -> ReservationModel:
     return ReservationModel(
         id=uuid.uuid4(),
+        organization_id=organization_id,
         customer_id=customer_id,
         facility_id=facility_id,
         starts_at=starts_at,
@@ -79,12 +87,20 @@ class TestExclusionConstraint:
         starts_at, ends_at = period()
         db_session.add(
             reservation_row(
-                customer.id, facility.id, starts_at, ends_at, ReservationStatus.CANCELLED
+                customer.id,
+                facility.id,
+                starts_at,
+                ends_at,
+                ReservationStatus.CANCELLED,
             )
         )
         db_session.add(
             reservation_row(
-                customer.id, facility.id, starts_at, ends_at, ReservationStatus.COMPLETED
+                customer.id,
+                facility.id,
+                starts_at,
+                ends_at,
+                ReservationStatus.COMPLETED,
             )
         )
         await db_session.commit()
@@ -96,7 +112,9 @@ class TestExclusionConstraint:
         )
         await db_session.commit()  # no debe fallar
 
-        total = await db_session.scalar(select(func.count()).select_from(ReservationModel))
+        total = await db_session.scalar(
+            select(func.count()).select_from(ReservationModel)
+        )
         assert total == 3
 
 
@@ -126,5 +144,7 @@ class TestRaceCondition:
 
         assert sorted(results) == [201, 409]
         async with SessionLocal() as session:
-            total = await session.scalar(select(func.count()).select_from(ReservationModel))
+            total = await session.scalar(
+                select(func.count()).select_from(ReservationModel)
+            )
         assert total == 1

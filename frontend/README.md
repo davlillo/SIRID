@@ -43,7 +43,7 @@ permite: cada endpoint protegido vuelve a validar la sesion y el rol en el backe
 
 ## Plano 3D
 
-`ComplexMap3D` es client-only y recibe las instalaciones de `GET /v1/facilities`. No tiene
+`ComplexMap3D` es client-only y recibe las instalaciones de la organización seleccionada. No tiene
 nombres codificados: la geometria sale de `map_x`, `map_z`, `map_width` y `map_depth`, y la
 altura del `facility_kind`. La escena no decide si una hora esta libre.
 

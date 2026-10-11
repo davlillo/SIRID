@@ -10,7 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.security import read_session_token
 from app.domain.enums import UserRole
-from app.domain.errors import AccountDisabled, AdminRequired, AuthenticationFailed, RateLimited
+from app.domain.errors import (
+    AccountDisabled,
+    AdminRequired,
+    AuthenticationFailed,
+    RateLimited,
+    ReservationStaffRequired,
+)
 from app.infrastructure.database import get_session
 from app.infrastructure.models import UserModel
 from app.services.user_service import UserService
@@ -53,7 +59,17 @@ async def require_catalog_staff(
     user: Annotated[UserModel, Depends(current_user)],
 ) -> UserModel:
     if user.role not in {UserRole.ADMIN, UserRole.ENCARGADO}:
-        raise AdminRequired("This operation requires catalog management permissions.")
+        raise AdminRequired("This operation requires catalog read access.")
+    return user
+
+
+async def require_reservation_staff(
+    user: Annotated[UserModel, Depends(current_user)],
+) -> UserModel:
+    if user.role != UserRole.ENCARGADO:
+        raise ReservationStaffRequired(
+            "Only an organization's reservation manager can manage reservations."
+        )
     return user
 
 
@@ -61,6 +77,7 @@ CurrentUser = Annotated[UserModel, Depends(current_user)]
 OptionalUser = Annotated[UserModel | None, Depends(optional_user)]
 AdminUser = Annotated[UserModel, Depends(require_admin)]
 CatalogStaffUser = Annotated[UserModel, Depends(require_catalog_staff)]
+ReservationStaffUser = Annotated[UserModel, Depends(require_reservation_staff)]
 
 
 class RateLimiter:
@@ -94,7 +111,9 @@ class RateLimiter:
 
 
 login_rate_limit = RateLimiter(limit=10, window_seconds=60, scope="login")
-availability_rate_limit = RateLimiter(limit=120, window_seconds=60, scope="availability")
+availability_rate_limit = RateLimiter(
+    limit=120, window_seconds=60, scope="availability"
+)
 reservation_rate_limit = RateLimiter(limit=20, window_seconds=60, scope="reservation")
 
 RATE_LIMITERS = (login_rate_limit, availability_rate_limit, reservation_rate_limit)

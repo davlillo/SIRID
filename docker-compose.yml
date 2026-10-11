@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
       POSTGRES_DB: ${POSTGRES_DB:-sirid}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -26,7 +26,6 @@ services:
       DEV_AUTH_ENABLED: ${DEV_AUTH_ENABLED:-false}
       JWT_SECRET: ${JWT_SECRET:-change-me-with-a-long-random-value}
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
-      ENCARGADO_EMAILS: ${ENCARGADO_EMAILS:-}
       SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USERNAME: ${SMTP_USERNAME:-}

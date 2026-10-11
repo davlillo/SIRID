@@ -1,10 +1,12 @@
-from datetime import date, datetime, time, timezone
+from datetime import UTC, date, datetime, time
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 
 from app.api.deps import SessionDep, availability_rate_limit
 from app.domain.enums import FacilityKind, SportType, Zone
+from app.domain.errors import OrganizationNotFound
+from app.repositories.organization_repository import OrganizationRepository
 from app.schemas.availability import (
     AvailabilityResponse,
     IntervalResponse,
@@ -21,6 +23,13 @@ from app.services.facility_service import FacilityService
 router = APIRouter(prefix="/facilities", tags=["facilities"])
 
 
+async def _bootstrap_organization_id(session: SessionDep) -> UUID:
+    organization = await OrganizationRepository(session).get_bootstrap()
+    if organization is None or not organization.is_active:
+        raise OrganizationNotFound("The bootstrap organization is not available.")
+    return organization.id
+
+
 @router.get("", response_model=Page[FacilityResponse], summary="Catalogo publico")
 async def list_facilities(
     session: SessionDep,
@@ -32,11 +41,13 @@ async def list_facilities(
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=24, ge=1, le=100),
 ) -> Page[FacilityResponse]:
+    organization_id = await _bootstrap_organization_id(session)
     items, total = await FacilityService(session).list_catalog(
         zone=zone,
         sport_type=sport_type.value if sport_type else None,
         facility_kind=facility_kind.value if facility_kind else None,
         min_capacity=min_capacity,
+        organization_id=organization_id,
         only_bookable=only_bookable,
         page=page,
         limit=limit,
@@ -54,14 +65,26 @@ async def list_facilities(
     response_model=FacilityDetailResponse,
     summary="Detalle por slug, para la ruta publica /instalaciones/[slug]",
 )
-async def read_facility_by_slug(slug: str, session: SessionDep) -> FacilityDetailResponse:
-    facility = await FacilityService(session).get_by_slug(slug)
+async def read_facility_by_slug(
+    slug: str, session: SessionDep
+) -> FacilityDetailResponse:
+    organization_id = await _bootstrap_organization_id(session)
+    facility = await FacilityService(session).get_by_slug(
+        slug, organization_id=organization_id
+    )
     return FacilityDetailResponse.model_validate(facility)
 
 
-@router.get("/{facility_id}", response_model=FacilityDetailResponse, summary="Detalle por id")
-async def read_facility(facility_id: UUID, session: SessionDep) -> FacilityDetailResponse:
-    facility = await FacilityService(session).get(facility_id)
+@router.get(
+    "/{facility_id}", response_model=FacilityDetailResponse, summary="Detalle por id"
+)
+async def read_facility(
+    facility_id: UUID, session: SessionDep
+) -> FacilityDetailResponse:
+    organization_id = await _bootstrap_organization_id(session)
+    facility = await FacilityService(session).get(
+        facility_id, organization_id=organization_id
+    )
     return FacilityDetailResponse.model_validate(facility)
 
 
@@ -74,10 +97,16 @@ async def read_facility(facility_id: UUID, session: SessionDep) -> FacilityDetai
 async def read_availability(
     facility_id: UUID,
     session: SessionDep,
-    target_date: date = Query(alias="date", description="Fecha local del complejo, YYYY-MM-DD"),
+    target_date: date = Query(
+        alias="date", description="Fecha local del complejo, YYYY-MM-DD"
+    ),
 ) -> AvailabilityResponse:
+    organization_id = await _bootstrap_organization_id(session)
     result = await AvailabilityService(session).for_date(
-        facility_id, target_date, datetime.now(timezone.utc)
+        facility_id,
+        target_date,
+        datetime.now(UTC),
+        organization_id=organization_id,
     )
     return AvailabilityResponse(
         facility_id=result.facility_id,
@@ -88,12 +117,15 @@ async def read_availability(
         currency=result.currency,
         operating_windows=[
             WindowResponse(
-                starts_at=window.start, ends_at=window.end, slot_minutes=window.slot_minutes
+                starts_at=window.start,
+                ends_at=window.end,
+                slot_minutes=window.slot_minutes,
             )
             for window in result.operating_windows
         ],
         busy=[
-            IntervalResponse(starts_at=block.start, ends_at=block.end) for block in result.busy
+            IntervalResponse(starts_at=block.start, ends_at=block.end)
+            for block in result.busy
         ],
         slots=[
             SlotResponse(
@@ -116,12 +148,20 @@ async def read_availability(
 async def check_availability_range(
     facility_id: UUID,
     session: SessionDep,
-    target_date: date = Query(alias="date", description="Fecha local del complejo, YYYY-MM-DD"),
+    target_date: date = Query(
+        alias="date", description="Fecha local del complejo, YYYY-MM-DD"
+    ),
     start: time = Query(description="Hora local de inicio, HH:MM"),
     end: time = Query(description="Hora local de fin, HH:MM. 00:00 es medianoche"),
 ) -> RangeCheckResponse:
+    organization_id = await _bootstrap_organization_id(session)
     result = await AvailabilityService(session).check_range(
-        facility_id, target_date, start, end, datetime.now(timezone.utc)
+        facility_id,
+        target_date,
+        start,
+        end,
+        datetime.now(UTC),
+        organization_id=organization_id,
     )
     return RangeCheckResponse(
         facility_id=result.facility_id,

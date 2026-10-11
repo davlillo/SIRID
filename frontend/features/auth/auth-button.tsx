@@ -59,7 +59,7 @@ export function GoogleAuthButton({ onDone }: { onDone?: () => void }) {
 
 /** Estado de sesion del header: acceso, panel y cierre de sesion. */
 export function SessionMenu() {
-  const { user, isLoading, isAdmin, canManageCatalog, logout } = useAuth();
+  const { user, isLoading, isAdmin, isReservationManager, logout } = useAuth();
 
   if (isLoading) return <Spinner />;
 
@@ -76,17 +76,19 @@ export function SessionMenu() {
 
   return (
     <div className="flex items-center gap-3">
-      {canManageCatalog ? (
+      {isAdmin || isReservationManager ? (
         <Link
-          href={isAdmin ? "/admin" : "/admin/instalaciones"}
+          href={isAdmin ? "/admin" : "/admin/reservas"}
           className="text-sm font-semibold hover:text-terracotta"
         >
           Panel
         </Link>
       ) : null}
-      <Link href="/mis-reservas" className="text-sm font-semibold hover:text-terracotta">
-        Mis reservas
-      </Link>
+      {user.role === "CLIENT" ? (
+        <Link href="/mis-reservas" className="text-sm font-semibold hover:text-terracotta">
+          Mis reservas
+        </Link>
+      ) : null}
       <span
         title={user.email}
         className="hidden font-mono text-[10px] uppercase tracking-[0.14em] text-olive sm:inline"

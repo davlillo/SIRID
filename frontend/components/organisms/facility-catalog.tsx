@@ -29,7 +29,7 @@ const CAPACITY_OPTIONS = [
 
 type SortKey = "recomendadas" | "capacidad" | "nombre";
 
-export function FacilityCatalog() {
+export function FacilityCatalog({ organizationSlug }: { organizationSlug: string }) {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [sort, setSort] = useState<SortKey>("recomendadas");
 
@@ -38,7 +38,7 @@ export function FacilityCatalog() {
     sport_type: filters.sport_type || undefined,
     min_capacity: filters.min_capacity ? Number(filters.min_capacity) : undefined,
     limit: 50,
-  });
+  }, organizationSlug);
 
   const items = useMemo(() => sortFacilities(query.data?.items ?? [], sort), [query.data, sort]);
   const grouped = useMemo(() => groupByZone(items), [items]);
@@ -159,7 +159,12 @@ export function FacilityCatalog() {
             </div>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {facilities.map((facility, index) => (
-                <FacilityCard key={facility.id} facility={facility} index={index} />
+                <FacilityCard
+                  key={facility.id}
+                  facility={facility}
+                  index={index}
+                  organizationSlug={organizationSlug}
+                />
               ))}
             </div>
           </section>

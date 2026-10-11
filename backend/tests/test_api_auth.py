@@ -1,13 +1,22 @@
 """Sesion, roles y proteccion de recursos ajenos."""
 
 from app.core.config import settings
-from tests.conftest import authenticate, requires_database
+from app.domain.enums import UserRole
+from app.infrastructure.models import UserModel
+
+from tests.conftest import (
+    TEST_ORGANIZATION_ID,
+    authenticate,
+    requires_database,
+)
 
 pytestmark = requires_database
 
 
 async def test_google_login_opens_a_session(client, google_verifier):
-    response = await client.post("/v1/auth/google", json={"credential": "a-valid-google-token"})
+    response = await client.post(
+        "/v1/auth/google", json={"credential": "a-valid-google-token"}
+    )
 
     assert response.status_code == 200
     assert response.json()["email"] == google_verifier.identity.email
@@ -15,7 +24,9 @@ async def test_google_login_opens_a_session(client, google_verifier):
 
 
 async def test_session_cookie_is_http_only(client):
-    response = await client.post("/v1/auth/google", json={"credential": "a-valid-google-token"})
+    response = await client.post(
+        "/v1/auth/google", json={"credential": "a-valid-google-token"}
+    )
 
     cookie = response.headers["set-cookie"]
     assert "HttpOnly" in cookie
@@ -23,7 +34,9 @@ async def test_session_cookie_is_http_only(client):
 
 
 async def test_invalid_google_token_is_rejected(client):
-    response = await client.post("/v1/auth/google", json={"credential": "invalid-token-value"})
+    response = await client.post(
+        "/v1/auth/google", json={"credential": "invalid-token-value"}
+    )
 
     assert response.status_code == 401
     assert response.json()["title"] == "Invalid Google credential"
@@ -32,34 +45,45 @@ async def test_invalid_google_token_is_rejected(client):
 async def test_configured_email_becomes_admin(client, google_verifier, monkeypatch):
     """La promocion a ADMIN viene de la configuracion, nunca del navegador."""
     monkeypatch.setitem(
-        settings.__dict__, "admin_email_set", frozenset({"admin@davlillos.test"})
+        settings.__dict__, "admin_email_set", frozenset({"admin@bootstrap.test"})
     )
     google_verifier.identity = google_verifier.identity.__class__(
         subject="google-subject-admin",
-        email="admin@davlillos.test",
+        email="admin@bootstrap.test",
         name="Admin Demo",
         picture=None,
     )
 
-    response = await client.post("/v1/auth/google", json={"credential": "a-valid-google-token"})
+    response = await client.post(
+        "/v1/auth/google", json={"credential": "a-valid-google-token"}
+    )
 
     assert response.json()["role"] == "ADMIN"
 
 
-async def test_configured_email_becomes_encargado(client, google_verifier, monkeypatch):
-    monkeypatch.setitem(
-        settings.__dict__,
-        "encargado_email_set",
-        frozenset({"encargado@davlillos.test"}),
+async def test_google_login_uses_the_role_assigned_in_sirid(
+    client, google_verifier, db_session
+):
+    db_session.add(
+        UserModel(
+            organization_id=TEST_ORGANIZATION_ID,
+            google_subject="pending:encargado-user",
+            email="manager@example.com",
+            name="Encargado Demo",
+            role=UserRole.ENCARGADO,
+        )
     )
+    await db_session.commit()
     google_verifier.identity = google_verifier.identity.__class__(
         subject="google-subject-encargado",
-        email="encargado@davlillos.test",
+        email="manager@example.com",
         name="Encargado Demo",
         picture=None,
     )
 
-    response = await client.post("/v1/auth/google", json={"credential": "a-valid-google-token"})
+    response = await client.post(
+        "/v1/auth/google", json={"credential": "a-valid-google-token"}
+    )
 
     assert response.status_code == 200
     assert response.json()["role"] == "ENCARGADO"

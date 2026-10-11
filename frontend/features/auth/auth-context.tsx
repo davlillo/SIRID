@@ -19,6 +19,7 @@ type AuthContextValue = {
   user: User | null;
   isLoading: boolean;
   isAdmin: boolean;
+  isReservationManager: boolean;
   canManageCatalog: boolean;
   loginWithGoogle: (credential: string) => Promise<void>;
   loginForDevelopment: (role: UserRole) => Promise<void>;
@@ -89,8 +90,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user: session.data ?? null,
       isLoading: session.isPending,
       isAdmin: session.data?.role === "ADMIN",
-      canManageCatalog:
-        session.data?.role === "ADMIN" || session.data?.role === "ENCARGADO",
+      isReservationManager: session.data?.role === "ENCARGADO",
+      canManageCatalog: session.data?.role === "ADMIN",
       loginWithGoogle: async (credential: string) => {
         await login.mutateAsync(credential);
       },

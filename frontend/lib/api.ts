@@ -12,8 +12,11 @@ import type {
   Client,
   Facility,
   FacilityDetail,
+  ManagedUser,
   NotificationLog,
+  Organization,
   Page,
+  PublicOrganization,
   RangeCheck,
   Rate,
   Reservation,
@@ -129,14 +132,45 @@ export type FacilityFilters = {
 };
 
 export const facilitiesApi = {
-  list: (filters: FacilityFilters = {}, revalidate?: number) =>
-    request<Page<Facility>>(`/facilities${query(filters)}`, { revalidate }),
-  bySlug: (slug: string, revalidate?: number) =>
-    request<FacilityDetail>(`/facilities/slug/${slug}`, { revalidate }),
-  byId: (id: string) => request<FacilityDetail>(`/facilities/${id}`),
-  availability: (facilityId: string, date: string, signal?: AbortSignal) =>
-    request<Availability>(`/facilities/${facilityId}/availability?date=${date}`, { signal }),
-  checkRange: (
+  listForOrganization: (
+    organizationSlug: string,
+    filters: FacilityFilters = {},
+    revalidate?: number,
+  ) =>
+    request<Page<Facility>>(
+      `/organizations/${encodeURIComponent(organizationSlug)}/facilities${query(filters)}`,
+      { revalidate },
+    ),
+  bySlugForOrganization: (
+    organizationSlug: string,
+    facilitySlug: string,
+    revalidate?: number,
+  ) =>
+    request<FacilityDetail>(
+      `/organizations/${encodeURIComponent(organizationSlug)}/facilities/${encodeURIComponent(facilitySlug)}`,
+      { revalidate },
+    ),
+  byIdForOrganization: (
+    organizationSlug: string,
+    facilityId: string,
+    revalidate?: number,
+  ) =>
+    request<FacilityDetail>(
+      `/organizations/${encodeURIComponent(organizationSlug)}/facilities/id/${facilityId}`,
+      { revalidate },
+    ),
+  availabilityForOrganization: (
+    organizationSlug: string,
+    facilityId: string,
+    date: string,
+    signal?: AbortSignal,
+  ) =>
+    request<Availability>(
+      `/organizations/${encodeURIComponent(organizationSlug)}/facilities/${facilityId}/availability?date=${date}`,
+      { signal },
+    ),
+  checkRangeForOrganization: (
+    organizationSlug: string,
     facilityId: string,
     date: string,
     start: string,
@@ -144,9 +178,13 @@ export const facilitiesApi = {
     signal?: AbortSignal,
   ) =>
     request<RangeCheck>(
-      `/facilities/${facilityId}/availability/check${query({ date, start, end })}`,
+      `/organizations/${encodeURIComponent(organizationSlug)}/facilities/${facilityId}/availability/check${query({ date, start, end })}`,
       { signal },
     ),
+};
+
+export const organizationsApi = {
+  listPublic: () => request<PublicOrganization[]>("/organizations", { revalidate: 60 }),
 };
 
 // --------------------------------------------------------------------------- //
@@ -186,6 +224,7 @@ export type AdminReservationFilters = {
 export const adminApi = {
   clients: () => request<Client[]>("/admin/clients"),
   createClient: (body: {
+    organization_id: string;
     first_name: string;
     last_name: string;
     dui: string;
@@ -242,4 +281,24 @@ export const adminApi = {
     body: { amount: string; effective_from: string; minimum_minutes?: number },
   ) =>
     request<Rate>(`/admin/facilities/${id}/rates/publish`, { method: "POST", body }),
+  organizations: () => request<Organization[]>("/admin/organizations"),
+  createOrganization: (body: {
+    name: string;
+    slug: string;
+    email_domain: string;
+  }) =>
+    request<Organization>("/admin/organizations", { method: "POST", body }),
+  updateOrganization: (
+    id: string,
+    body: Partial<Pick<Organization, "name" | "slug" | "email_domain" | "is_active">>,
+  ) => request<Organization>(`/admin/organizations/${id}`, { method: "PATCH", body }),
+  users: () => request<ManagedUser[]>("/admin/users"),
+  createUser: (body: {
+    email: string;
+    organization_id: string;
+    role: UserRole;
+    name?: string;
+  }) => request<ManagedUser>("/admin/users", { method: "POST", body }),
+  updateUser: (id: string, body: Partial<Pick<ManagedUser, "role" | "is_active">>) =>
+    request<ManagedUser>(`/admin/users/${id}`, { method: "PATCH", body }),
 };

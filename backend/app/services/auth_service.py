@@ -10,6 +10,7 @@ from app.domain.enums import UserRole
 from app.domain.errors import AccountDisabled, AuthenticationFailed
 from app.infrastructure.google_identity import GoogleIdentityVerifier, GoogleVerifier
 from app.infrastructure.models import UserModel
+from app.repositories.organization_repository import OrganizationRepository
 from app.repositories.user_repository import UserRepository
 
 
@@ -23,9 +24,12 @@ class Session:
 class AuthService:
     """Coordina la verificacion de Google y la sesion local."""
 
-    def __init__(self, session: AsyncSession, verifier: GoogleVerifier | None = None) -> None:
+    def __init__(
+        self, session: AsyncSession, verifier: GoogleVerifier | None = None
+    ) -> None:
         self.session = session
         self.users = UserRepository(session)
+        self.organizations = OrganizationRepository(session)
         self.verifier = verifier or GoogleIdentityVerifier()
 
     async def authenticate_google(self, credential: str) -> Session:
@@ -39,21 +43,22 @@ class AuthService:
             user.name = identity.name
             user.avatar_url = identity.picture
 
+        organization = await self.organizations.get_by_id(user.organization_id)
+        if organization is None:
+            await self.session.rollback()
+            raise AuthenticationFailed("This account cannot access SIRID.")
+
         # `is False`: un usuario recien creado aun no tiene valor persistido.
         if user.is_active is False:
             await self.session.rollback()
-            raise AccountDisabled("Tu cuenta esta desactivada. Contacta al administrador.")
+            raise AccountDisabled(
+                "Tu cuenta esta desactivada. Contacta al administrador."
+            )
 
-        # Los roles internos provienen de la configuracion del servidor, nunca
-        # de datos enviados por el navegador. ADMIN tiene prioridad si un
-        # correo aparece en ambas listas.
+        # ADMIN_EMAILS es solo el bootstrap del administrador del sistema; los
+        # demás cambios de rol persisten desde el panel administrativo.
         if identity.email in settings.admin_email_set:
             user.role = UserRole.ADMIN
-        elif (
-            user.role != UserRole.ADMIN
-            and identity.email in settings.encargado_email_set
-        ):
-            user.role = UserRole.ENCARGADO
 
         await self.session.flush()
         await self.session.commit()
@@ -72,9 +77,13 @@ class AuthService:
 
         email = f"dev-{role.value.lower()}@sirid.local"
         user = await self.users.get_by_email(email)
+        organization = await self.organizations.get_bootstrap()
+        if organization is None:
+            raise AuthenticationFailed("The default organization is not configured.")
         if user is None:
             user = self.users.add(
                 UserModel(
+                    organization_id=organization.id,
                     google_subject=f"development:{role.value.lower()}",
                     email=email,
                     name=f"Demo {role.value.title()}",
@@ -99,14 +108,19 @@ class AuthService:
             existing.avatar_url = identity.picture
             return existing
 
-        if identity.email in settings.admin_email_set:
-            role = UserRole.ADMIN
-        elif identity.email in settings.encargado_email_set:
-            role = UserRole.ENCARGADO
+        is_system_admin = identity.email in settings.admin_email_set
+        if is_system_admin:
+            organization = await self.organizations.get_bootstrap()
         else:
-            role = UserRole.CLIENT
+            domain = identity.email.rsplit("@", 1)[-1]
+            organization = await self.organizations.get_by_email_domain(domain)
+        if organization is None:
+            raise AuthenticationFailed("This account cannot access SIRID.")
+
+        role = UserRole.ADMIN if is_system_admin else UserRole.CLIENT
         return self.users.add(
             UserModel(
+                organization_id=organization.id,
                 google_subject=identity.subject,
                 email=identity.email,
                 name=identity.name,

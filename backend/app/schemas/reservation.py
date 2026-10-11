@@ -18,6 +18,7 @@ class ReservationFacility(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    organization_id: UUID
     slug: str
     name: str
     facility_kind: str

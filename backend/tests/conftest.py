@@ -79,6 +79,7 @@ from app.infrastructure.models import (
     FacilityModel,
     FacilityRateModel,
     FacilityScheduleModel,
+    OrganizationModel,
     UserModel,
 )
 from app.main import app
@@ -92,7 +93,9 @@ TABLES = (
     "facility_images",
     "facilities",
     "users",
+    "organizations",
 )
+TEST_ORGANIZATION_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 
 requires_database = pytest.mark.skipif(
     not os.getenv("DATABASE_URL"),
@@ -106,7 +109,7 @@ class FakeGoogleVerifier:
     def __init__(self) -> None:
         self.identity = GoogleIdentity(
             subject="google-subject-001",
-            email="cliente@davlillos.test",
+            email="client@example.com",
             name="Cliente Demo",
             picture=None,
         )
@@ -116,7 +119,9 @@ class FakeGoogleVerifier:
         from app.domain.errors import InvalidGoogleCredential
 
         if self.should_fail or credential == "invalid-token-value":
-            raise InvalidGoogleCredential("The Google credential could not be verified.")
+            raise InvalidGoogleCredential(
+                "The Google credential could not be verified."
+            )
         return self.identity
 
 
@@ -150,6 +155,14 @@ async def db_session():
         await session.execute(
             text(f"TRUNCATE {', '.join(TABLES)} RESTART IDENTITY CASCADE")
         )
+        session.add(
+            OrganizationModel(
+                id=TEST_ORGANIZATION_ID,
+                slug="organizacion-inicial",
+                name="Organización de prueba",
+                email_domain="example.com",
+            )
+        )
         await session.commit()
         yield session
 
@@ -176,29 +189,33 @@ def authenticate(http: AsyncClient, user: UserModel) -> None:
 
 @pytest_asyncio.fixture
 async def customer(db_session) -> UserModel:
-    return await _create_user(db_session, "cliente@davlillos.test", UserRole.CLIENT)
+    return await _create_user(db_session, "client@example.com", UserRole.CLIENT)
 
 
 @pytest_asyncio.fixture
 async def other_customer(db_session) -> UserModel:
-    return await _create_user(db_session, "otro@davlillos.test", UserRole.CLIENT)
+    return await _create_user(db_session, "other@example.com", UserRole.CLIENT)
 
 
 @pytest_asyncio.fixture
 async def admin(db_session) -> UserModel:
-    return await _create_user(db_session, "admin@davlillos.test", UserRole.ADMIN)
+    return await _create_user(db_session, "admin@example.com", UserRole.ADMIN)
 
 
 @pytest_asyncio.fixture
 async def encargado(db_session) -> UserModel:
-    return await _create_user(
-        db_session, "encargado@davlillos.test", UserRole.ENCARGADO
-    )
+    return await _create_user(db_session, "manager@example.com", UserRole.ENCARGADO)
 
 
-async def _create_user(session, email: str, role: UserRole) -> UserModel:
+async def _create_user(
+    session,
+    email: str,
+    role: UserRole,
+    organization_id: uuid.UUID = TEST_ORGANIZATION_ID,
+) -> UserModel:
     user = UserModel(
         id=uuid.uuid4(),
+        organization_id=organization_id,
         google_subject=f"subject-{email}",
         email=email,
         name=email.split("@")[0].title(),
@@ -223,8 +240,10 @@ async def twin_facility(db_session) -> FacilityModel:
 
 
 async def make_facility(session, slug: str, name: str, **overrides) -> FacilityModel:
+    organization_id = overrides.pop("organization_id", TEST_ORGANIZATION_ID)
     model = FacilityModel(
         id=uuid.uuid4(),
+        organization_id=organization_id,
         slug=slug,
         name=name,
         description="Instalacion usada por la suite de pruebas de integracion.",

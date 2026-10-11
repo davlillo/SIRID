@@ -24,6 +24,7 @@ from app.infrastructure.models import (
     FacilityRateModel,
     FacilityScheduleModel,
 )
+from app.repositories.organization_repository import OrganizationRepository
 from app.seeds.complex_data import FACILITIES
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
@@ -34,16 +35,28 @@ RATE_VALID_FROM = date(2020, 1, 1)
 
 async def seed() -> None:
     async with SessionLocal() as session:
+        organization = await OrganizationRepository(session).get_bootstrap()
+        if organization is None:
+            raise RuntimeError(
+                "The bootstrap organization must exist before seeding facilities."
+            )
         created, updated = 0, 0
 
         for entry in FACILITIES:
             facility = await session.scalar(
-                select(FacilityModel).where(FacilityModel.slug == entry["slug"])
+                select(FacilityModel).where(
+                    FacilityModel.organization_id == organization.id,
+                    FacilityModel.slug == entry["slug"],
+                )
             )
             is_new = facility is None
             if is_new:
-                facility = FacilityModel(slug=entry["slug"])
+                facility = FacilityModel(
+                    organization_id=organization.id,
+                    slug=entry["slug"],
+                )
                 session.add(facility)
+            assert facility is not None
 
             map_x, map_y, map_z, map_width, map_depth = entry["map"]
             facility.name = entry["name"]
@@ -66,11 +79,15 @@ async def seed() -> None:
             await session.flush()
 
             slot_minutes = entry["rate"]["minutes"] if entry.get("rate") else 60
-            await _replace_schedules(session, facility.id, entry["schedules"], slot_minutes)
+            await _replace_schedules(
+                session, facility.id, entry["schedules"], slot_minutes
+            )
             await _replace_images(session, facility.id, entry["images"])
             await _ensure_rate(session, facility.id, entry["rate"])
 
-            created, updated = (created + 1, updated) if is_new else (created, updated + 1)
+            created, updated = (
+                (created + 1, updated) if is_new else (created, updated + 1)
+            )
             logger.info("%s %s", "created" if is_new else "updated", entry["slug"])
 
         await session.commit()
@@ -81,7 +98,9 @@ async def _replace_schedules(
     session, facility_id, schedules: list[dict], slot_minutes: int
 ) -> None:
     await session.execute(
-        delete(FacilityScheduleModel).where(FacilityScheduleModel.facility_id == facility_id)
+        delete(FacilityScheduleModel).where(
+            FacilityScheduleModel.facility_id == facility_id
+        )
     )
     session.add_all(
         FacilityScheduleModel(

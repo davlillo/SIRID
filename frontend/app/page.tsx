@@ -3,14 +3,7 @@ import Link from "next/link";
 import { ButtonLink } from "@/components/atoms/button";
 import { BrandMark } from "@/components/atoms/brand-mark";
 import { TechnicalLabel } from "@/components/atoms/technical-label";
-import { FacilityCard } from "@/components/molecules/facility-card";
 import { PublicLayout } from "@/components/templates/public-layout";
-import { facilitiesApi } from "@/lib/api";
-import { KIND_LABEL } from "@/lib/format";
-import type { Facility } from "@/lib/types";
-
-// El catalogo publico cambia poco: se cachea un minuto en el servidor.
-export const revalidate = 60;
 
 const METHOD = [
   {
@@ -26,47 +19,27 @@ const METHOD = [
   {
     step: "03",
     title: "Confirmar",
-    detail: "Un administrador aprueba la solicitud y recibis el aviso por correo.",
+    detail: "El encargado de reservaciones aprueba la solicitud y recibis el aviso por correo.",
   },
 ];
 
-export default async function HomePage() {
-  let featured: Facility[] = [];
-  try {
-    const page = await facilitiesApi.list({ only_bookable: true, limit: 3 }, 60);
-    featured = page.items;
-  } catch {
-    // La landing debe renderizar aunque la API este caida.
-    featured = [];
-  }
-
+export default function HomePage() {
   return (
     <PublicLayout>
       <Hero />
 
       <section className="dvl-rule py-20">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <TechnicalLabel>CATALOG_01</TechnicalLabel>
-            <h2 className="mt-3 font-display text-4xl font-semibold tracking-[-0.03em]">
-              Espacios para moverse.
-            </h2>
-          </div>
-          <ButtonLink href="/instalaciones">Ver catalogo completo</ButtonLink>
+        <TechnicalLabel>ORGANIZATIONS / PUBLIC CATALOG</TechnicalLabel>
+        <h2 className="mt-3 max-w-2xl font-display text-4xl font-semibold tracking-[-0.03em]">
+          Cada organización, su propio espacio.
+        </h2>
+        <p className="mt-5 max-w-xl leading-7 text-charcoal/70">
+          Elige una organización para consultar sus instalaciones y disponibilidad. Sus reservas
+          permanecen separadas de las demás.
+        </p>
+        <div className="mt-7">
+          <ButtonLink href="/organizaciones">Explorar organizaciones</ButtonLink>
         </div>
-
-        {featured.length > 0 ? (
-          <div className="grid gap-5 md:grid-cols-3">
-            {featured.map((facility, index) => (
-              <FacilityCard key={facility.id} facility={facility} index={index} />
-            ))}
-          </div>
-        ) : (
-          <p className="border border-dashed border-charcoal/30 px-6 py-10 text-center text-sm text-charcoal/60">
-            El catalogo se mostrara cuando la API responda. Verifica que el backend este
-            levantado en <code className="font-mono">http://localhost:8000</code>.
-          </p>
-        )}
       </section>
 
       <section id="como-funciona" className="dvl-rule py-20">
@@ -87,7 +60,7 @@ export default async function HomePage() {
         </ol>
       </section>
 
-      <MapTeaser facilities={featured} />
+      <MapTeaser />
     </PublicLayout>
   );
 }
@@ -103,8 +76,8 @@ function Hero() {
           ni papeles.
         </p>
         <div className="mt-10 flex flex-wrap gap-3">
-          <ButtonLink href="/instalaciones" size="lg">
-            Explorar instalaciones
+          <ButtonLink href="/organizaciones" size="lg">
+            Elegir organización
           </ButtonLink>
           <Link
             href="#como-funciona"
@@ -138,7 +111,7 @@ function Hero() {
   );
 }
 
-function MapTeaser({ facilities }: { facilities: Facility[] }) {
+function MapTeaser() {
   return (
     <section className="dvl-rule grid gap-10 py-20 md:grid-cols-[0.85fr_1.15fr] md:items-center">
       <div>
@@ -147,11 +120,11 @@ function MapTeaser({ facilities }: { facilities: Facility[] }) {
           Elegi el espacio desde el plano.
         </h2>
         <p className="mt-5 max-w-md leading-7 text-charcoal/70">
-          Una vista esquematica del complejo para ubicar el estadio, las canchas, las piscinas y
-          los espacios de eventos antes de reservar.
+          Después de elegir una organización, abre su plano para ubicar los espacios antes de
+          reservar.
         </p>
         <div className="mt-8">
-          <ButtonLink href="/mapa" variant="secondary">
+          <ButtonLink href="/organizaciones" variant="secondary">
             Abrir el plano
           </ButtonLink>
         </div>
@@ -159,16 +132,16 @@ function MapTeaser({ facilities }: { facilities: Facility[] }) {
 
       <div className="technical-grid relative aspect-[4/3] overflow-hidden border border-charcoal bg-olive/20 p-6">
         <div className="absolute left-[8%] top-[14%] flex h-[34%] w-[40%] items-end border-2 border-coffee bg-ivory/70 p-2 font-mono text-[10px] uppercase tracking-[0.14em]">
-          {facilities[0]?.name ?? "ESTADIO"}
+          ESPACIO 01
         </div>
         <div className="absolute right-[10%] top-[22%] flex h-[28%] w-[32%] items-end border-2 border-olive bg-ivory/70 p-2 font-mono text-[10px] uppercase tracking-[0.14em]">
-          {facilities[1]?.name ?? "CANCHAS"}
+          ESPACIO 02
         </div>
         <div className="absolute bottom-[12%] left-[26%] flex h-[24%] w-[44%] items-end border-2 border-terracotta bg-ivory/70 p-2 font-mono text-[10px] uppercase tracking-[0.14em]">
-          {facilities[2]?.name ?? "EVENTOS"}
+          ESPACIO 03
         </div>
         <span className="absolute bottom-4 right-4 font-mono text-[10px] uppercase tracking-[0.18em] text-charcoal/60">
-          {facilities[0] ? KIND_LABEL[facilities[0].facility_kind] : "STATUS"}: BUILDING
+          CATALOG: PUBLIC
         </span>
       </div>
     </section>

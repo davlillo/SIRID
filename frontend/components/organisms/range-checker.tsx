@@ -52,19 +52,21 @@ export function RangeChecker({
   date,
   isBookable = true,
   onPick,
+  organizationSlug,
 }: {
   facilityId: string;
   date: string;
+  organizationSlug: string;
   isBookable?: boolean;
   /** Uno o varios tramos; varios cuando se reserva un dia con entretiempo. */
   onPick?: (slots: Slot[]) => void;
 }) {
-  const availability = useAvailability(facilityId, date);
+  const availability = useAvailability(facilityId, date, organizationSlug);
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [range, setRange] = useState<RangeQuery | null>(null);
   const [wholeDay, setWholeDay] = useState(false);
-  const check = useRangeCheck(facilityId, range);
+  const check = useRangeCheck(facilityId, range, organizationSlug);
 
   const windows = availability.data?.operating_windows ?? [];
   const segments: RangeQuery[] = wholeDay
@@ -74,7 +76,7 @@ export function RangeChecker({
         end: localTime(window.ends_at),
       }))
     : [];
-  const segmentChecks = useRangeChecks(facilityId, segments);
+  const segmentChecks = useRangeChecks(facilityId, segments, organizationSlug);
 
   if (!availability.data?.is_open) return null;
 

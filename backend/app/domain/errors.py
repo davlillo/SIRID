@@ -40,10 +40,40 @@ class AdminRequired(DomainError):
     slug = "admin-required"
 
 
+class ReservationStaffRequired(DomainError):
+    status = 403
+    title = "Reservation staff role required"
+    slug = "reservation-staff-required"
+
+
 class UserNotFound(DomainError):
     status = 404
     title = "User not found"
     slug = "user-not-found"
+
+
+class UserEmailTaken(DomainError):
+    status = 409
+    title = "User email already registered"
+    slug = "user-email-taken"
+
+
+class OrganizationNotFound(DomainError):
+    status = 404
+    title = "Organization not found"
+    slug = "organization-not-found"
+
+
+class OrganizationConflict(DomainError):
+    status = 409
+    title = "Organization already exists"
+    slug = "organization-conflict"
+
+
+class OrganizationEmailMismatch(DomainError):
+    status = 422
+    title = "User email does not match organization"
+    slug = "organization-email-mismatch"
 
 
 class ClientDuiTaken(DomainError):

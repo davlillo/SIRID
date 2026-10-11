@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import { PublicLayout } from "@/components/templates/public-layout";
 import { FacilityCatalog } from "@/components/organisms/facility-catalog";
@@ -9,9 +10,13 @@ export const metadata: Metadata = {
   description: "Catalogo de canchas, piscinas y espacios de eventos del complejo SIRID.",
 };
 
-export default function FacilitiesPage() {
+type SearchParams = { searchParams: Promise<{ organization?: string }> };
+
+export default async function FacilitiesPage({ searchParams }: SearchParams) {
+  const { organization } = await searchParams;
+  if (!organization) redirect("/organizaciones");
   return (
-    <PublicLayout>
+    <PublicLayout organizationSlug={organization}>
       <section className="py-14">
         <TechnicalLabel>CATALOG_01</TechnicalLabel>
         <h1 className="dvl-display mt-4">Instalaciones</h1>
@@ -21,7 +26,7 @@ export default function FacilitiesPage() {
         </p>
       </section>
 
-      <FacilityCatalog />
+        <FacilityCatalog organizationSlug={organization} />
     </PublicLayout>
   );
 }

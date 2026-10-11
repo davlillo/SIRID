@@ -19,17 +19,19 @@ levanta la API. Con eso quedan disponibles:
 | URL | Contenido |
 |---|---|
 | `http://localhost:3000` | Landing publica |
-| `http://localhost:3000/instalaciones` | Catalogo con filtros por zona, deporte y capacidad |
-| `http://localhost:3000/instalaciones/[slug]` | Detalle, disponibilidad y flujo de reserva |
-| `http://localhost:3000/mapa` | Plano 3D del complejo |
+| `http://localhost:3000/organizaciones` | Selector público de organización |
+| `http://localhost:3000/instalaciones?organization=<slug>` | Catálogo de la organización seleccionada |
+| `http://localhost:3000/instalaciones/[slug]?organization=<slug>` | Detalle, disponibilidad y reserva |
+| `http://localhost:3000/mapa?organization=<slug>` | Plano 3D de la organización seleccionada |
 | `http://localhost:3000/mis-reservas` | Panel del cliente |
 | `http://localhost:3000/admin` | Panel administrativo |
 | `http://localhost:8000/docs` | OpenAPI ejecutable |
 | `http://localhost:8000/v1/health` | Salud de la API y de la base |
 
 Para iniciar sesion hay que configurar `GOOGLE_CLIENT_ID` y listar los correos
-administradores en `ADMIN_EMAILS`. Los encargados de clientes y tarifas se
-configuran en `ENCARGADO_EMAILS`. Ver `spect/12-manual-implementacion.md`.
+administradores iniciales en `ADMIN_EMAILS`. Las organizaciones, usuarios, roles e instalaciones
+se administran desde el panel. Las reservas quedan limitadas al encargado de cada organización.
+Ver `spect/12-manual-implementacion.md`.
 
 ## Estado
 
