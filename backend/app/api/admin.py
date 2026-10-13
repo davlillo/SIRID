@@ -16,6 +16,7 @@ from app.api.deps import (
 from app.api.notifications import schedule_notification
 from app.core.config import settings
 from app.domain.enums import FacilityKind, ReservationStatus, SportType, UserRole, Zone
+from app.infrastructure.models import UserModel
 from app.repositories.reservation_repository import ReservationRepository
 from app.schemas.admin import (
     AdminStatsResponse,
@@ -43,6 +44,19 @@ from app.services.reservation_service import ReservationService
 from app.services.schedule_service import ScheduleService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+async def _assert_facility_access(
+    session: SessionDep, facility_id: UUID, staff: UserModel
+) -> None:
+    """ADMIN ve cualquier instalacion; ENCARGADO solo las de su organizacion."""
+    await FacilityService(session).get(
+        facility_id,
+        organization_id=(
+            staff.organization_id if staff.role == UserRole.ENCARGADO else None
+        ),
+        include_inactive=True,
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -356,9 +370,9 @@ async def replace_schedules(
     facility_id: UUID,
     payload: ScheduleReplaceRequest,
     session: SessionDep,
-    staff: AdminUser,
+    staff: CatalogStaffUser,
 ) -> list[ScheduleResponse]:
-    await FacilityService(session).get(facility_id, include_inactive=True)
+    await _assert_facility_access(session, facility_id, staff)
     schedules = await ScheduleService(session).replace(
         facility_id, [entry.model_dump() for entry in payload.schedules]
     )
@@ -372,9 +386,9 @@ async def create_rate(
     facility_id: UUID,
     payload: RateCreate,
     session: SessionDep,
-    staff: AdminUser,
+    staff: CatalogStaffUser,
 ) -> RateResponse:
-    await FacilityService(session).get(facility_id, include_inactive=True)
+    await _assert_facility_access(session, facility_id, staff)
     rate = await RateService(session).create(facility_id, payload.model_dump())
     return RateResponse.model_validate(rate)
 
@@ -389,9 +403,9 @@ async def publish_rate(
     facility_id: UUID,
     payload: RatePublishRequest,
     session: SessionDep,
-    staff: AdminUser,
+    staff: CatalogStaffUser,
 ) -> RateResponse:
-    await FacilityService(session).get(facility_id, include_inactive=True)
+    await _assert_facility_access(session, facility_id, staff)
     rate = await RateService(session).publish_update(
         facility_id,
         amount=payload.amount,

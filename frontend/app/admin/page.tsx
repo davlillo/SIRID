@@ -11,15 +11,19 @@ export default function AdminDashboardPage() {
       <TechnicalLabel>SYSTEM_ADMIN / CONTROL</TechnicalLabel>
       <h1 className="mt-3 font-display text-4xl font-semibold tracking-[-0.03em]">Administración del sistema</h1>
       <p className="mt-4 max-w-2xl text-sm leading-6 text-charcoal/65">
-        Gestiona organizaciones, sus usuarios y sus instalaciones. Las reservas y sus datos se
-        administran desde la organización por sus encargados.
+        Crea organizaciones y administra las cuentas del sistema. Los clientes y las
+        instalaciones de cada organización se gestionan entrando a ella; las reservas las
+        operan los encargados.
       </p>
 
-      <ul className="mt-8 grid gap-4 md:grid-cols-3">
+      <ul className="mt-8 grid gap-4 md:grid-cols-2">
         {[
-          ["Organizaciones", "Crea organizaciones y administra sus dominios.", "/admin/organizaciones"],
+          [
+            "Organizaciones",
+            "Crea organizaciones y, al entrar, administra sus clientes e instalaciones.",
+            "/admin/organizaciones",
+          ],
           ["Usuarios", "Asigna organización, rol y estado de cada cuenta.", "/admin/usuarios"],
-          ["Instalaciones", "Administra instalaciones, horarios y tarifas.", "/admin/instalaciones"],
         ].map(([title, description, href]) => (
           <li key={href}>
             <Link

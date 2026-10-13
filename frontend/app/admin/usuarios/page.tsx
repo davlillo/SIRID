@@ -22,6 +22,7 @@ export default function AdminUsersPage() {
   const updateUser = useUpdateSystemUser();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
   const [organizationId, setOrganizationId] = useState("");
   const [role, setRole] = useState<"CLIENT" | "ENCARGADO">("ENCARGADO");
 
@@ -37,9 +38,11 @@ export default function AdminUsersPage() {
       name: name.trim() || undefined,
       organization_id: organizationId,
       role,
+      password: password || undefined,
     });
     setEmail("");
     setName("");
+    setPassword("");
   }
 
   return (
@@ -71,6 +74,22 @@ export default function AdminUsersPage() {
             maxLength={160}
             value={name}
             onChange={(event) => setName(event.target.value)}
+          />
+        </Field>
+        <Field
+          label="Contraseña (opcional)"
+          htmlFor="managed-user-password"
+          hint="Mínimo 8 caracteres. Si se omite, la cuenta solo entra con Google."
+          className="md:col-span-2"
+        >
+          <Input
+            id="managed-user-password"
+            type="password"
+            minLength={8}
+            maxLength={128}
+            autoComplete="new-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
           />
         </Field>
         <Field label="Organización" htmlFor="managed-user-org">

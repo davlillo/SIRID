@@ -375,6 +375,23 @@ class TestCatalog:
         assert response.status_code == 200
         assert len(response.json()) == 2
 
+    async def test_an_encargado_replaces_the_schedule_of_their_own_facility(
+        self, client, encargado, facility
+    ):
+        authenticate(client, encargado)
+
+        response = await client.post(
+            f"/v1/admin/facilities/{facility.id}/schedules",
+            json={
+                "schedules": [
+                    {"weekday": 2, "opens_at": "09:00:00", "closes_at": "18:00:00"},
+                ]
+            },
+        )
+
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+
     async def test_overlapping_schedules_are_rejected(self, client, admin, facility):
         authenticate(client, admin)
 

@@ -10,6 +10,8 @@ class SystemUserCreate(BaseModel):
     organization_id: UUID
     role: UserRole
     name: str | None = Field(default=None, min_length=2, max_length=160)
+    # Opcional: si se omite, la cuenta solo puede entrar con Google.
+    password: str | None = Field(default=None, min_length=8, max_length=128)
 
     @field_validator("role", mode="before")
     @classmethod
@@ -23,6 +25,8 @@ class SystemUserCreate(BaseModel):
 class SystemUserUpdate(BaseModel):
     role: UserRole | None = None
     is_active: bool | None = None
+    # Permite asignar o restablecer la contrasena local desde el panel.
+    password: str | None = Field(default=None, min_length=8, max_length=128)
 
     @field_validator("role")
     @classmethod

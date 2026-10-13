@@ -22,6 +22,7 @@ type AuthContextValue = {
   isReservationManager: boolean;
   canManageCatalog: boolean;
   loginWithGoogle: (credential: string) => Promise<void>;
+  loginWithPassword: (identifier: string, password: string) => Promise<void>;
   loginForDevelopment: (role: UserRole) => Promise<void>;
   logout: () => Promise<void>;
 };
@@ -50,6 +51,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useMutation({
     mutationFn: authApi.loginWithGoogle,
+    onSuccess: (user) => {
+      queryClient.setQueryData(SESSION_QUERY_KEY, user);
+      queryClient.invalidateQueries({ queryKey: ["reservations"] });
+      notify(`Sesion iniciada como ${user.name}.`, "success");
+    },
+    onError: (error) => {
+      notify(error instanceof ApiError ? error.detail : "No se pudo iniciar sesion.", "error");
+    },
+  });
+
+  const passwordLogin = useMutation({
+    mutationFn: ({ identifier, password }: { identifier: string; password: string }) =>
+      authApi.loginWithPassword(identifier, password),
     onSuccess: (user) => {
       queryClient.setQueryData(SESSION_QUERY_KEY, user);
       queryClient.invalidateQueries({ queryKey: ["reservations"] });
@@ -96,6 +110,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loginWithGoogle: async (credential: string) => {
         await login.mutateAsync(credential);
       },
+      loginWithPassword: async (identifier: string, password: string) => {
+        await passwordLogin.mutateAsync({ identifier, password });
+      },
       loginForDevelopment: async (role: UserRole) => {
         await developmentLogin.mutateAsync(role);
       },
@@ -103,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await logout.mutateAsync();
       },
     }),
-    [session.data, session.isPending, login, developmentLogin, logout],
+    [session.data, session.isPending, login, passwordLogin, developmentLogin, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

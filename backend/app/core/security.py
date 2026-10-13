@@ -1,5 +1,13 @@
-"""Sesion local firmada. El token de Google nunca se guarda ni se reutiliza."""
+"""Sesion local firmada y credenciales locales.
 
+El token de Google nunca se guarda ni se reutiliza. Las contrasenas se derivan
+con PBKDF2-HMAC-SHA256 (hashlib, sin dependencias externas) y nunca se guardan
+en claro: solo el digest con su sal e iteraciones.
+"""
+
+import hashlib
+import hmac
+import secrets
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
@@ -10,6 +18,11 @@ from app.domain.enums import UserRole
 from app.domain.errors import AuthenticationFailed
 
 ISSUER = "sirid-reserva"
+
+# OWASP recomienda >= 600k iteraciones para PBKDF2-HMAC-SHA256.
+PBKDF2_ALGORITHM = "pbkdf2_sha256"
+PBKDF2_ITERATIONS = 600_000
+PBKDF2_SALT_BYTES = 16
 
 
 def issue_session_token(user_id: UUID, role: UserRole) -> tuple[str, int]:
@@ -36,3 +49,35 @@ def read_session_token(token: str) -> tuple[UUID, UserRole]:
         return UUID(payload["sub"]), UserRole(payload["role"])
     except (jwt.PyJWTError, KeyError, ValueError) as error:
         raise AuthenticationFailed("The session is invalid or has expired.") from error
+
+
+def hash_password(password: str) -> str:
+    """Deriva la contrasena con una sal aleatoria por usuario.
+
+    Formato: `pbkdf2_sha256$<iteraciones>$<sal_hex>$<digest_hex>`, para poder
+    rotar el algoritmo o el costo sin invalidar los hashes existentes.
+    """
+    salt = secrets.token_bytes(PBKDF2_SALT_BYTES)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), salt, PBKDF2_ITERATIONS
+    )
+    return f"{PBKDF2_ALGORITHM}${PBKDF2_ITERATIONS}${salt.hex()}${digest.hex()}"
+
+
+def verify_password(password: str, stored: str | None) -> bool:
+    """Compara en tiempo constante. Un hash ausente o invalido nunca valida."""
+    if not stored:
+        return False
+    try:
+        algorithm, iterations, salt_hex, digest_hex = stored.split("$")
+        salt = bytes.fromhex(salt_hex)
+        expected = bytes.fromhex(digest_hex)
+        iterations_value = int(iterations)
+    except (ValueError, AttributeError):
+        return False
+    if algorithm != PBKDF2_ALGORITHM:
+        return False
+    digest = hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), salt, iterations_value
+    )
+    return hmac.compare_digest(digest, expected)

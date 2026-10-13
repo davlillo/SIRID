@@ -21,6 +21,8 @@ class ClientCreate(BaseModel):
     dui: str = Field(pattern=r"^\d{8}-\d$")
     phone: str = Field(pattern=r"^\d{4}-\d{4}$")
     email: EmailStr
+    # Opcional: habilita el inicio de sesion local con DUI o correo.
+    password: str | None = Field(default=None, min_length=8, max_length=128)
 
     @field_validator("first_name", "last_name", "dui", "phone", mode="before")
     @classmethod
@@ -42,6 +44,8 @@ class ClientUpdate(BaseModel):
     phone: str | None = Field(default=None, pattern=r"^\d{4}-\d{4}$")
     email: EmailStr | None = None
     is_active: bool | None = None
+    # Permite asignar o restablecer la contrasena local del cliente.
+    password: str | None = Field(default=None, min_length=8, max_length=128)
 
     @field_validator("first_name", "last_name", "dui", "phone", mode="before")
     @classmethod
