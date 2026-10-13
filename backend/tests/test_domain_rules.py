@@ -8,12 +8,16 @@ import pytest
 
 from app.domain.enums import ReservationStatus
 from app.domain.errors import (
+    InsufficientPayment,
+    InvalidPaymentAmount,
     InvalidReservationPeriod,
     InvalidReservationTransition,
     OutsideOperatingHours,
     ReservationNotFinished,
 )
 from app.domain.rules import (
+    assert_positive_payment_amount,
+    assert_sufficient_payment,
     BookableWindow,
     Interval,
     OperatingWindow,
@@ -256,3 +260,19 @@ class TestFitsSlots:
         interval = Interval(local(2026, 10, 5, 8), local(2026, 10, 5, 10))
         with pytest.raises(InvalidReservationPeriod):
             assert_fits_slots(interval, self.window, TZ)
+
+
+class TestPaymentRules:
+    def test_rejects_non_positive_amounts(self):
+        with pytest.raises(InvalidPaymentAmount):
+            assert_positive_payment_amount(Decimal("0"))
+        with pytest.raises(InvalidPaymentAmount):
+            assert_positive_payment_amount(Decimal("-1"))
+
+    def test_sufficient_payment_allows_confirmation(self):
+        assert_sufficient_payment(Decimal("40.00"), Decimal("40.00"))
+        assert_sufficient_payment(Decimal("50.00"), Decimal("40.00"))
+
+    def test_insufficient_payment_is_rejected(self):
+        with pytest.raises(InsufficientPayment):
+            assert_sufficient_payment(Decimal("10.00"), Decimal("40.00"))

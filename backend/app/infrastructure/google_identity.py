@@ -14,6 +14,8 @@ from app.core.config import settings
 from app.domain.errors import InvalidGoogleCredential
 
 ACCEPTED_ISSUERS = {"accounts.google.com", "https://accounts.google.com"}
+# Margen para iat/exp cuando el reloj del emisor y el del servidor difieren unos segundos.
+TOKEN_CLOCK_SKEW_SECONDS = 30
 
 
 @dataclass(frozen=True)
@@ -44,7 +46,10 @@ class GoogleIdentityVerifier:
 
         try:
             claims = id_token.verify_oauth2_token(
-                credential, google_requests.Request(), self.client_id
+                credential,
+                google_requests.Request(),
+                self.client_id,
+                clock_skew_in_seconds=TOKEN_CLOCK_SKEW_SECONDS,
             )
         except ValueError as error:
             # Cubre firma invalida, audiencia incorrecta y token expirado.

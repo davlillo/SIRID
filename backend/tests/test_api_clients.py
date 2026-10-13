@@ -1,4 +1,4 @@
-﻿"""HU-01 y RF-02: registro, actualizacion y baja de clientes."""
+"""HU-01 y RF-02: registro, actualizacion y baja de clientes."""
 
 from app.infrastructure.google_identity import GoogleIdentity
 
@@ -112,6 +112,28 @@ async def test_a_regular_client_cannot_register_other_clients(client, customer):
     response = await client.post("/v1/admin/clients", json=CLIENT)
 
     assert response.status_code == 403
+
+
+async def test_an_encargado_can_register_and_list_clients_in_its_organization(
+    client, admin, encargado
+):
+    authenticate(client, admin)
+    await client.post("/v1/admin/clients", json=CLIENT)
+
+    authenticate(client, encargado)
+    own = {
+        **CLIENT,
+        "dui": "87654321-0",
+        "email": "encargado.cliente@gmail.com",
+    }
+    created = await client.post("/v1/admin/clients", json=own)
+    assert created.status_code == 201
+
+    listed = await client.get("/v1/admin/clients")
+    assert listed.status_code == 200
+    duis = {row["dui"] for row in listed.json()}
+    assert own["dui"] in duis
+    assert CLIENT["dui"] in duis
 
 
 async def test_registered_clients_are_listed(client, admin):

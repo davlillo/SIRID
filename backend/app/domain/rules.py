@@ -13,6 +13,8 @@ from math import ceil
 
 from app.domain.enums import ReservationStatus
 from app.domain.errors import (
+    InsufficientPayment,
+    InvalidPaymentAmount,
     InvalidReservationPeriod,
     InvalidReservationTransition,
     OutsideOperatingHours,
@@ -72,6 +74,19 @@ class BookableWindow:
     @property
     def end(self) -> datetime:
         return self.interval.end
+
+
+def assert_positive_payment_amount(amount: Decimal) -> None:
+    if amount <= 0:
+        raise InvalidPaymentAmount("El monto del pago debe ser mayor que cero.")
+
+
+def assert_sufficient_payment(total_paid: Decimal, required: Decimal) -> None:
+    """HU-10 / HU-04: confirmar exige abono total >= importe cotizado."""
+    if total_paid < required:
+        raise InsufficientPayment(
+            "El pago registrado no alcanza el importe exigido de la reserva."
+        )
 
 
 def assert_transition(current: ReservationStatus, target: ReservationStatus) -> None:

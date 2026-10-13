@@ -194,6 +194,24 @@ export type AdminReservation = Reservation & {
   customer: { id: string; name: string; email: string };
 };
 
+export type ReservationPayment = {
+  id: string;
+  reservation_id: string;
+  amount: string;
+  currency: string;
+  note: string | null;
+  recorded_by_id: string | null;
+  created_at: string;
+};
+
+export type ReservationPaymentsSummary = {
+  quoted_amount: string;
+  total_paid: string;
+  balance_due: string;
+  currency: string;
+  payments: ReservationPayment[];
+};
+
 export type AdminStats = {
   pending: number;
   confirmed_today: number;

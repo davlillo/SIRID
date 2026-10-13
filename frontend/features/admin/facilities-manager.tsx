@@ -1,8 +1,10 @@
 "use client";
 
+import { Pencil } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/atoms/button";
+import { IconAction } from "@/components/atoms/icon-action";
 import { ErrorState, LoadingBlock } from "@/components/atoms/states";
 import { TechnicalLabel } from "@/components/atoms/technical-label";
 import { useAuth } from "@/features/auth/auth-context";
@@ -73,21 +75,51 @@ export function FacilitiesManager({ organizationId }: { organizationId: string }
         </div>
       ) : null}
 
-      <div className="mt-8 grid gap-6 xl:grid-cols-[1.1fr_1fr] xl:items-start">
-        <div className="overflow-x-auto border border-charcoal/20">
-          <table className="w-full min-w-[32rem] border-collapse text-sm">
+      <div className="mt-8 grid gap-6 xl:grid-cols-2 xl:items-stretch">
+        <section className="flex min-w-0 flex-col border border-charcoal/20 bg-ivory">
+          <div className="border-b border-charcoal/15 px-4 py-3">
+            <TechnicalLabel>CATALOGO</TechnicalLabel>
+          </div>
+          <table className="w-full table-fixed border-collapse text-sm">
             <caption className="sr-only">Instalaciones de la organización</caption>
             <thead>
               <tr className="bg-charcoal text-ivory">
-                {["Nombre", "Zona", "Tipo", "Cap.", "Estado"].map((head) => (
-                  <th
-                    key={head}
-                    scope="col"
-                    className="px-3 py-2.5 text-left font-mono text-[10px] uppercase tracking-[0.14em]"
-                  >
-                    {head}
-                  </th>
-                ))}
+                <th
+                  scope="col"
+                  className="w-[28%] px-3 py-2.5 text-left font-mono text-[10px] uppercase tracking-[0.14em]"
+                >
+                  Nombre
+                </th>
+                <th
+                  scope="col"
+                  className="w-[16%] px-3 py-2.5 text-left font-mono text-[10px] uppercase tracking-[0.14em]"
+                >
+                  Zona
+                </th>
+                <th
+                  scope="col"
+                  className="w-[22%] px-3 py-2.5 text-left font-mono text-[10px] uppercase tracking-[0.14em]"
+                >
+                  Tipo
+                </th>
+                <th
+                  scope="col"
+                  className="w-[10%] px-3 py-2.5 text-left font-mono text-[10px] uppercase tracking-[0.14em]"
+                >
+                  Cap.
+                </th>
+                <th
+                  scope="col"
+                  className="w-[14%] px-3 py-2.5 text-left font-mono text-[10px] uppercase tracking-[0.14em]"
+                >
+                  Estado
+                </th>
+                <th
+                  scope="col"
+                  className="w-[10%] px-3 py-2.5 text-right font-mono text-[10px] uppercase tracking-[0.14em]"
+                >
+                  Acc.
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -101,41 +133,60 @@ export function FacilitiesManager({ organizationId }: { organizationId: string }
                       : "cursor-pointer border-t border-charcoal/10 hover:bg-sand/40"
                   }
                 >
-                  <td className="px-3 py-2.5 font-medium">{facility.name}</td>
-                  <td className="px-3 py-2.5">{ZONE_LABEL[facility.zone]}</td>
-                  <td className="px-3 py-2.5">{KIND_LABEL[facility.facility_kind]}</td>
+                  <td className="truncate px-3 py-2.5 font-medium" title={facility.name}>
+                    {facility.name}
+                  </td>
+                  <td className="truncate px-3 py-2.5">{ZONE_LABEL[facility.zone]}</td>
+                  <td className="truncate px-3 py-2.5" title={KIND_LABEL[facility.facility_kind]}>
+                    {KIND_LABEL[facility.facility_kind]}
+                  </td>
                   <td className="px-3 py-2.5 font-mono">{facility.capacity}</td>
                   <td className="px-3 py-2.5">
                     <span
                       className={
                         facility.is_active
-                          ? "border border-olive px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-olive"
-                          : "border border-charcoal/30 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-charcoal/50"
+                          ? "inline-block border border-olive px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-olive"
+                          : "inline-block border border-charcoal/30 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-charcoal/50"
                       }
                     >
                       {facility.is_active ? "Activa" : "Inactiva"}
                     </span>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <div className="flex justify-end">
+                      <IconAction
+                        label={`Editar ${facility.name}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          select(facility);
+                        }}
+                      >
+                        <Pencil className="h-4 w-4" aria-hidden />
+                      </IconAction>
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
           {facilities.isSuccess && items.length === 0 ? (
-            <p className="border-t border-charcoal/10 px-3 py-4 text-sm text-charcoal/60">
+            <p className="border-t border-charcoal/10 px-4 py-6 text-sm text-charcoal/60">
               Esta organización todavía no tiene instalaciones.
             </p>
           ) : null}
-        </div>
+        </section>
 
-        <div>
+        <div className="min-h-full">
           {creating && canManageCatalog ? (
-            <FacilityForm
-              organizations={[]}
-              fixedOrganizationId={organizationId}
-              onDone={() => setCreating(false)}
-            />
+            <div className="h-full border border-charcoal bg-sand/30">
+              <FacilityForm
+                organizations={[]}
+                fixedOrganizationId={organizationId}
+                onDone={() => setCreating(false)}
+              />
+            </div>
           ) : editing ? (
-            <div className="border border-charcoal/20 bg-ivory">
+            <div className="h-full border border-charcoal/20 bg-ivory">
               <div
                 role="tablist"
                 aria-label="Secciones de la instalación"
@@ -179,11 +230,12 @@ export function FacilitiesManager({ organizationId }: { organizationId: string }
               </div>
             </div>
           ) : (
-            <aside className="border border-dashed border-charcoal/25 p-6">
+            <aside className="flex h-full min-h-[12rem] flex-col justify-center border border-dashed border-charcoal/25 bg-ivory/50 p-6">
               <TechnicalLabel>EDICION</TechnicalLabel>
-              <p className="mt-3 text-sm text-charcoal/60">
-                Selecciona una instalacion de la tabla para editar sus datos, su horario semanal
-                y sus tarifas.
+              <p className="mt-3 text-sm leading-6 text-charcoal/60">
+                Selecciona una fila o el icono de{" "}
+                <strong className="font-semibold text-charcoal">lápiz</strong> para editar datos,
+                horario y tarifas.
               </p>
             </aside>
           )}
