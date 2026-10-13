@@ -111,6 +111,8 @@ function query(params: Record<string, string | number | boolean | undefined | nu
 export const authApi = {
   loginWithGoogle: (credential: string) =>
     request<User>("/auth/google", { method: "POST", body: { credential } }),
+  loginWithPassword: (identifier: string, password: string) =>
+    request<User>("/auth/login", { method: "POST", body: { identifier, password } }),
   loginForDevelopment: (role: UserRole) =>
     request<User>("/auth/development", { method: "POST", body: { role } }),
   me: () => request<User>("/auth/me"),
@@ -230,6 +232,7 @@ export const adminApi = {
     dui: string;
     phone: string;
     email: string;
+    password?: string;
   }) => request<Client>("/admin/clients", { method: "POST", body }),
   updateClient: (
     id: string,
@@ -240,6 +243,7 @@ export const adminApi = {
       phone: string;
       email: string;
       is_active: boolean;
+      password: string;
     }>,
   ) => request<Client>(`/admin/clients/${id}`, { method: "PATCH", body }),
   stats: () => request<AdminStats>("/admin/stats"),
@@ -298,7 +302,10 @@ export const adminApi = {
     organization_id: string;
     role: UserRole;
     name?: string;
+    password?: string;
   }) => request<ManagedUser>("/admin/users", { method: "POST", body }),
-  updateUser: (id: string, body: Partial<Pick<ManagedUser, "role" | "is_active">>) =>
-    request<ManagedUser>(`/admin/users/${id}`, { method: "PATCH", body }),
+  updateUser: (
+    id: string,
+    body: Partial<Pick<ManagedUser, "role" | "is_active">> & { password?: string },
+  ) => request<ManagedUser>(`/admin/users/${id}`, { method: "PATCH", body }),
 };

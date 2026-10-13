@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { Button } from "@/components/atoms/button";
+import { Button, ButtonLink } from "@/components/atoms/button";
 import { Field, Input } from "@/components/atoms/field";
 import { EmptyState, ErrorState, LoadingBlock } from "@/components/atoms/states";
 import { TechnicalLabel } from "@/components/atoms/technical-label";
@@ -140,6 +140,13 @@ export default function AdminOrganizationsPage() {
                 </p>
               </div>
               <div className="flex items-center gap-3">
+                <ButtonLink
+                  href={`/admin/organizaciones/${organization.id}`}
+                  size="sm"
+                  variant="primary"
+                >
+                  Gestionar
+                </ButtonLink>
                 <Button
                   type="button"
                   size="sm"

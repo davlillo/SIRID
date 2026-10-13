@@ -11,14 +11,17 @@ import { SessionMenu } from "@/features/auth/auth-button";
 import { useAuth } from "@/features/auth/auth-context";
 import { cn } from "@/lib/cn";
 
+// El administrador del sistema ve 3 secciones: resumen, organizaciones y
+// usuarios. Clientes e instalaciones viven dentro de cada organizacion.
+// El encargado ve las reservas y el catalogo de su propia organizacion.
 const SECTIONS = [
   { href: "/admin", label: "Resumen", access: "admin" },
   { href: "/admin/organizaciones", label: "Organizaciones", access: "admin" },
   { href: "/admin/usuarios", label: "Usuarios", access: "admin" },
-  { href: "/admin/clientes", label: "Clientes", access: "admin" },
-  { href: "/admin/instalaciones", label: "Instalaciones", access: "catalog" },
-  { href: "/admin/reservas", label: "Reservas", access: "reservations" },
-];
+  { href: "/admin/clientes", label: "Clientes", access: "manager" },
+  { href: "/admin/instalaciones", label: "Instalaciones", access: "manager" },
+  { href: "/admin/reservas", label: "Reservas", access: "manager" },
+] as const;
 
 /**
  * Layout administrativo.
@@ -76,7 +79,7 @@ export function AdminLayout({
           <Link href="/" className="flex items-center gap-3">
             <BrandMark />
             <span className="border border-charcoal px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.16em]">
-              Admin
+              {isAdmin ? "Admin" : "Encargado"}
             </span>
           </Link>
           <SessionMenu />
@@ -86,13 +89,9 @@ export function AdminLayout({
           <nav aria-label="Secciones del panel" className="lg:sticky lg:top-8">
             <TechnicalLabel>PANEL</TechnicalLabel>
             <ul className="mt-3 flex gap-2 overflow-x-auto lg:flex-col lg:overflow-visible">
-              {SECTIONS.filter((section) => {
-                if (section.access === "admin") return isAdmin;
-                if (section.access === "catalog") {
-                  return isAdmin || isReservationManager;
-                }
-                return isReservationManager;
-              }).map((section) => {
+              {SECTIONS.filter((section) =>
+                section.access === "admin" ? isAdmin : isReservationManager,
+              ).map((section) => {
                 const active =
                   section.href === "/admin"
                     ? pathname === "/admin"

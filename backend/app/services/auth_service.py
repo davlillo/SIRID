@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.security import issue_session_token
+from app.core.security import issue_session_token, verify_password
 from app.domain.enums import UserRole
 from app.domain.errors import AccountDisabled, AuthenticationFailed
 from app.infrastructure.google_identity import GoogleIdentityVerifier, GoogleVerifier
@@ -63,6 +63,27 @@ class AuthService:
         await self.session.flush()
         await self.session.commit()
         await self.session.refresh(user)
+
+        token, max_age = issue_session_token(user.id, user.role)
+        return Session(user=user, token=token, max_age_seconds=max_age)
+
+    async def authenticate_password(self, identifier: str, password: str) -> Session:
+        """Inicio de sesion local con correo o DUI.
+
+        Se verifica siempre, incluso sin usuario, para no filtrar por tiempo de
+        respuesta si el identificador existe. El error es generico.
+        """
+        user = await self.users.get_by_identifier(identifier)
+        if not verify_password(password, user.password_hash if user else None):
+            raise AuthenticationFailed("Usuario o contrasena incorrectos.")
+
+        organization = await self.organizations.get_by_id(user.organization_id)
+        if organization is None:
+            raise AuthenticationFailed("This account cannot access SIRID.")
+        if user.is_active is False:
+            raise AccountDisabled(
+                "Tu cuenta esta desactivada. Contacta al administrador."
+            )
 
         token, max_age = issue_session_token(user.id, user.role)
         return Session(user=user, token=token, max_age_seconds=max_age)

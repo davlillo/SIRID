@@ -93,6 +93,8 @@ class UserModel(Base):
     dui: Mapped[str | None] = mapped_column(String(10), unique=True)
     phone: Mapped[str | None] = mapped_column(String(24))
     avatar_url: Mapped[str | None] = mapped_column(String(2048))
+    # Credencial local opcional. `None` = la cuenta solo entra con Google.
+    password_hash: Mapped[str | None] = mapped_column(String(255))
     role: Mapped[UserRole] = mapped_column(
         user_role_enum, server_default=UserRole.CLIENT.value
     )

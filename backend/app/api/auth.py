@@ -5,7 +5,12 @@ from fastapi import APIRouter, Depends, Response
 from app.api.deps import CurrentUser, SessionDep, login_rate_limit
 from app.core.config import settings
 from app.infrastructure.google_identity import GoogleIdentityVerifier, GoogleVerifier
-from app.schemas.auth import DevelopmentLoginRequest, GoogleLoginRequest, UserResponse
+from app.schemas.auth import (
+    DevelopmentLoginRequest,
+    GoogleLoginRequest,
+    PasswordLoginRequest,
+    UserResponse,
+)
 from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -44,6 +49,24 @@ async def login_with_google(
     verifier: VerifierDep,
 ) -> UserResponse:
     result = await AuthService(session, verifier).authenticate_google(payload.credential)
+    _set_session_cookie(response, result.token, result.max_age_seconds)
+    return UserResponse.model_validate(result.user)
+
+
+@router.post(
+    "/login",
+    response_model=UserResponse,
+    dependencies=[Depends(login_rate_limit)],
+    summary="Abre la sesion con usuario (DUI) o correo y contrasena",
+)
+async def login_with_password(
+    payload: PasswordLoginRequest,
+    response: Response,
+    session: SessionDep,
+) -> UserResponse:
+    result = await AuthService(session).authenticate_password(
+        payload.identifier, payload.password
+    )
     _set_session_cookie(response, result.token, result.max_age_seconds)
     return UserResponse.model_validate(result.user)
 

@@ -2,6 +2,7 @@
 
 import { GoogleLogin } from "@react-oauth/google";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/atoms/button";
@@ -60,6 +61,12 @@ export function GoogleAuthButton({ onDone }: { onDone?: () => void }) {
 /** Estado de sesion del header: acceso, panel y cierre de sesion. */
 export function SessionMenu() {
   const { user, isLoading, isAdmin, isReservationManager, logout } = useAuth();
+  const router = useRouter();
+
+  async function signOut() {
+    await logout();
+    router.push("/ingresar");
+  }
 
   if (isLoading) return <Spinner />;
 
@@ -95,7 +102,7 @@ export function SessionMenu() {
       >
         {user.name.split(" ")[0]}
       </span>
-      <Button variant="ghost" size="sm" onClick={() => void logout()}>
+      <Button variant="ghost" size="sm" onClick={() => void signOut()}>
         Salir
       </Button>
     </div>

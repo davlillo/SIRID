@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.security import hash_password
 from app.domain.enums import UserRole
 from app.domain.errors import (
     AdminRequired,
@@ -63,6 +64,11 @@ class UserService:
                 google_subject=f"pending:{user_id}",
                 email=email,
                 name=payload.get("name") or email.split("@", 1)[0],
+                password_hash=(
+                    hash_password(payload["password"])
+                    if payload.get("password")
+                    else None
+                ),
                 role=payload["role"],
                 is_active=True,
             )
@@ -110,6 +116,8 @@ class UserService:
             target.role = role
         if changes.get("is_active") is not None:
             target.is_active = changes["is_active"]
+        if changes.get("password"):
+            target.password_hash = hash_password(changes["password"])
 
         await self.session.commit()
         await self.session.refresh(target)

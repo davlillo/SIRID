@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.security import hash_password
 from app.domain.enums import UserRole
 from app.domain.errors import (
     ClientDuiTaken,
@@ -52,6 +53,8 @@ class ClientService:
             existing.name = f"{existing.first_name} {existing.last_name}"
             existing.dui = dui
             existing.phone = payload["phone"].strip()
+            if payload.get("password"):
+                existing.password_hash = hash_password(payload["password"])
             await self._commit()
             await self.session.refresh(existing)
             return existing
@@ -74,6 +77,11 @@ class ClientService:
                 last_name=last_name,
                 dui=dui,
                 phone=payload["phone"].strip(),
+                password_hash=(
+                    hash_password(payload["password"])
+                    if payload.get("password")
+                    else None
+                ),
                 avatar_url=None,
                 role=UserRole.CLIENT,
                 is_active=True,
@@ -102,6 +110,8 @@ class ClientService:
             user.email = email
         if changes.get("is_active") is not None:
             user.is_active = changes["is_active"]
+        if changes.get("password"):
+            user.password_hash = hash_password(changes["password"])
         user.name = f"{user.first_name} {user.last_name}"
 
         await self._commit()

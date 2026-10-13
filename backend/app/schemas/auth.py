@@ -9,6 +9,13 @@ class GoogleLoginRequest(BaseModel):
     credential: str = Field(min_length=16, max_length=4096)
 
 
+class PasswordLoginRequest(BaseModel):
+    """`identifier` acepta el correo o el DUI (usuario) de una cuenta local."""
+
+    identifier: str = Field(min_length=3, max_length=320)
+    password: str = Field(min_length=1, max_length=128)
+
+
 class DevelopmentLoginRequest(BaseModel):
     role: UserRole
 
