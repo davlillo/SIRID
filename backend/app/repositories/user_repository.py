@@ -62,12 +62,16 @@ class UserRepository:
             )
         )
 
-    async def list_registered_clients(self) -> list[UserModel]:
-        rows = await self.session.scalars(
-            select(UserModel)
-            .where(UserModel.role == UserRole.CLIENT, UserModel.dui.is_not(None))
-            .order_by(UserModel.created_at.desc())
+    async def list_registered_clients(
+        self, *, organization_id: UUID | None = None
+    ) -> list[UserModel]:
+        query = select(UserModel).where(
+            UserModel.role == UserRole.CLIENT,
+            UserModel.dui.is_not(None),
         )
+        if organization_id is not None:
+            query = query.where(UserModel.organization_id == organization_id)
+        rows = await self.session.scalars(query.order_by(UserModel.created_at.desc()))
         return list(rows.all())
 
     def add(self, user: UserModel) -> UserModel:

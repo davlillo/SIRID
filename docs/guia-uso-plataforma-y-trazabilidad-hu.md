@@ -155,7 +155,7 @@ Backend: `api/` (rutas) → `services/` (casos de uso) → `repositories/` (SQL)
 | **HU-04** Confirmar reservación | `/admin/reservas` | `POST /v1/admin/reservations/{id}/confirm` | `services/reservation_service.py` | Implementado |
 | **HU-05** Cancelar reservación | `/mis-reservas`, `/admin/reservas` | `POST /v1/reservations/{id}/cancel`, `POST /v1/admin/reservations/{id}/cancel` | `services/reservation_service.py` | Implementado |
 | **HU-06** Completar reservación | `/admin/reservas` | `POST /v1/admin/reservations/{id}/complete` | `services/reservation_service.py` | Implementado |
-| **HU-10** Registrar pago/anticipo | — | — | — | **No implementado** (no hay tabla `payments`) |
+| **HU-10** Registrar pago/anticipo | `/admin/reservas` (panel detalle) | `POST/GET /v1/admin/reservations/{id}/payments` | `reservation_payments` | **Implementado** |
 | **HU-11** Historial de reservaciones | `/mis-reservas` | `GET /v1/reservations/me`, `GET /v1/reservations/{id}` | `repositories/reservation_repository.py` | Implementado |
 | **HU-12** Reportes | `/admin` (indicadores) | `GET /v1/admin/stats`; filtros en `GET /v1/admin/reservations` | `repositories/reservation_repository.py` | Parcial (no exporta PDF/Excel) |
 
@@ -193,7 +193,7 @@ Flujo ejecutado contra PostgreSQL real + API en vivo (no mocks):
 
 ## 7. Brechas conocidas (para el cierre)
 
-- **HU-10 (pagos/anticipos):** sin implementar. HU-04 confirma sin exigir pago.
+- **HU-10 (pagos/anticipos):** registro en panel de reservas; confirmación (HU-04) exige `total_paid >= quoted_amount`.
 - **Evidencia/UML en Jira:** solo existe el diagrama de clases (`diagrams/reservas-class-diagram.drawio`). Faltan casos de uso, actividad, secuencia y capturas; Jira declara 0 adjuntos.
 - **Trazabilidad por HU:** el trabajo base llegó en un commit único (`todo`); no hay PR por HU.
 - **Estado en Jira:** las 5 épicas siguen «Por hacer» y el Sprint 1 «Activo» con fecha vencida (07/10/2026).

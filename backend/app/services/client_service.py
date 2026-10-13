@@ -91,9 +91,17 @@ class ClientService:
         await self.session.refresh(user)
         return user
 
-    async def update(self, client_id: UUID, changes: dict) -> UserModel:
+    async def update(
+        self,
+        client_id: UUID,
+        changes: dict,
+        *,
+        organization_id: UUID | None = None,
+    ) -> UserModel:
         user = await self.users.get_registered_client(client_id)
-        if user is None:
+        if user is None or (
+            organization_id is not None and user.organization_id != organization_id
+        ):
             raise ClientNotFound("El cliente solicitado no existe.")
 
         dui = changes.get("dui")
@@ -118,8 +126,10 @@ class ClientService:
         await self.session.refresh(user)
         return user
 
-    async def list_registered(self) -> list[UserModel]:
-        return await self.users.list_registered_clients()
+    async def list_registered(
+        self, *, organization_id: UUID | None = None
+    ) -> list[UserModel]:
+        return await self.users.list_registered_clients(organization_id=organization_id)
 
     async def _assert_unique(self, *, dui: str | None, email: str | None) -> None:
         if dui and await self.users.get_by_dui(dui):

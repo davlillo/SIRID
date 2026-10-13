@@ -35,6 +35,21 @@ async def a_pending_reservation(client, customer, facility) -> dict:
     return response.json()
 
 
+async def pay_reservation_in_full(client, encargado, reservation: dict) -> None:
+    authenticate(client, encargado)
+    response = await client.post(
+        f"/v1/admin/reservations/{reservation['id']}/payments",
+        json={"amount": reservation["quoted_amount"]},
+    )
+    assert response.status_code == 201
+
+
+async def confirm_paid_reservation(client, encargado, reservation: dict):
+    await pay_reservation_in_full(client, encargado, reservation)
+    authenticate(client, encargado)
+    return await client.post(f"/v1/admin/reservations/{reservation['id']}/confirm")
+
+
 class TestPermissions:
     async def test_a_client_cannot_list_admin_reservations(
         self, client, customer, facility
@@ -162,9 +177,7 @@ class TestLifecycle:
         reservation = await a_pending_reservation(client, customer, facility)
         authenticate(client, encargado)
 
-        response = await client.post(
-            f"/v1/admin/reservations/{reservation['id']}/confirm"
-        )
+        response = await confirm_paid_reservation(client, encargado, reservation)
 
         assert response.status_code == 200
         assert response.json()["status"] == "CONFIRMED"
@@ -175,7 +188,7 @@ class TestLifecycle:
         """RN-08: una confirmada no vuelve a pendiente ni se reconfirma."""
         reservation = await a_pending_reservation(client, customer, facility)
         authenticate(client, encargado)
-        await client.post(f"/v1/admin/reservations/{reservation['id']}/confirm")
+        await confirm_paid_reservation(client, encargado, reservation)
 
         response = await client.post(
             f"/v1/admin/reservations/{reservation['id']}/confirm"
@@ -189,7 +202,7 @@ class TestLifecycle:
         """RN-09: solo se completa despues de que termine el periodo."""
         reservation = await a_pending_reservation(client, customer, facility)
         authenticate(client, encargado)
-        await client.post(f"/v1/admin/reservations/{reservation['id']}/confirm")
+        await confirm_paid_reservation(client, encargado, reservation)
 
         response = await client.post(
             f"/v1/admin/reservations/{reservation['id']}/complete"
@@ -203,7 +216,7 @@ class TestLifecycle:
     ):
         reservation = await a_pending_reservation(client, customer, facility)
         authenticate(client, encargado)
-        await client.post(f"/v1/admin/reservations/{reservation['id']}/confirm")
+        await confirm_paid_reservation(client, encargado, reservation)
 
         # Se mueve el periodo al pasado: no hay forma de crearlo asi por la API.
         row = await db_session.get(ReservationModel, uuid.UUID(reservation["id"]))
@@ -248,7 +261,7 @@ class TestLifecycle:
     ):
         reservation = await a_pending_reservation(client, customer, facility)
         authenticate(client, encargado)
-        await client.post(f"/v1/admin/reservations/{reservation['id']}/confirm")
+        await confirm_paid_reservation(client, encargado, reservation)
 
         response = await client.get(
             f"/v1/admin/reservations/{reservation['id']}/events"
@@ -707,7 +720,7 @@ class TestStatusFilter:
     ):
         reservation = await a_pending_reservation(client, customer, facility)
         authenticate(client, encargado)
-        await client.post(f"/v1/admin/reservations/{reservation['id']}/confirm")
+        await confirm_paid_reservation(client, encargado, reservation)
 
         pending = await client.get(
             f"/v1/admin/reservations?status={ReservationStatus.PENDING.value}"

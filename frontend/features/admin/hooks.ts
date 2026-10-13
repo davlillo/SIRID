@@ -90,6 +90,42 @@ export function useReservationNotifications(id: string | null) {
   });
 }
 
+export function useReservationPayments(id: string | null) {
+  return useQuery({
+    queryKey: ["admin", "payments", id],
+    queryFn: () => adminApi.reservationPayments(id!),
+    enabled: Boolean(id),
+  });
+}
+
+export function useRegisterPayment() {
+  const queryClient = useQueryClient();
+  const { notify } = useToast();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      amount,
+      note,
+    }: {
+      id: string;
+      amount: string;
+      note?: string;
+    }) => adminApi.registerPayment(id, { amount, note: note ?? null }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "payments", variables.id] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "reservations"] });
+      notify("Pago registrado.", "success");
+    },
+    onError: (error) => {
+      notify(
+        error instanceof ApiError ? error.detail : "No se pudo registrar el pago.",
+        "error",
+      );
+    },
+  });
+}
+
 type Action = "confirm" | "cancel" | "complete";
 
 const ACTION_MESSAGE: Record<Action, string> = {

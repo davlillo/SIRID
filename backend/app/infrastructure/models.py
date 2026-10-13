@@ -275,6 +275,36 @@ class ReservationModel(Base):
         cascade="all, delete-orphan",
         order_by="ReservationEventModel.created_at",
     )
+    payments: Mapped[list["ReservationPaymentModel"]] = relationship(
+        back_populates="reservation",
+        cascade="all, delete-orphan",
+        order_by="ReservationPaymentModel.created_at",
+    )
+
+
+class ReservationPaymentModel(Base):
+    __tablename__ = "reservation_payments"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    reservation_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("reservations.id", ondelete="CASCADE")
+    )
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE")
+    )
+    recorded_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL")
+    )
+    amount: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    currency: Mapped[str] = mapped_column(String(3), server_default="USD")
+    note: Mapped[str | None] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    reservation: Mapped[ReservationModel] = relationship(back_populates="payments")
 
 
 class ReservationEventModel(Base):

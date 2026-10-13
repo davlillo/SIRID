@@ -1,12 +1,15 @@
 "use client";
 
+import { Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/atoms/button";
+import { IconAction } from "@/components/atoms/icon-action";
 import { Field, Input } from "@/components/atoms/field";
 import { Modal } from "@/components/atoms/modal";
 import { EmptyState, ErrorState, LoadingBlock } from "@/components/atoms/states";
 import { TechnicalLabel } from "@/components/atoms/technical-label";
+import { cn } from "@/lib/cn";
 import type { Client } from "@/lib/types";
 
 import { useAdminClients, useCreateClient, useUpdateClient } from "./hooks";
@@ -17,7 +20,6 @@ type ClientForm = {
   dui: string;
   phone: string;
   email: string;
-  password: string;
 };
 
 const EMPTY_FORM: ClientForm = {
@@ -26,7 +28,6 @@ const EMPTY_FORM: ClientForm = {
   dui: "",
   phone: "",
   email: "",
-  password: "",
 };
 
 // Los clientes creados antes de pedir el correo tienen uno interno de relleno.
@@ -37,6 +38,7 @@ export function ClientsManager({ organizationId }: { organizationId: string }) {
   const clients = useAdminClients();
   const create = useCreateClient();
   const update = useUpdateClient();
+  const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Client | null>(null);
   const [toDeactivate, setToDeactivate] = useState<Client | null>(null);
   const [attempted, setAttempted] = useState(false);
@@ -63,12 +65,21 @@ export function ClientsManager({ organizationId }: { organizationId: string }) {
   }, [scoped, search]);
 
   function resetForm() {
+    setCreating(false);
     setEditing(null);
     setForm(EMPTY_FORM);
     setAttempted(false);
   }
 
+  function startCreating() {
+    setEditing(null);
+    setCreating(true);
+    setForm(EMPTY_FORM);
+    setAttempted(false);
+  }
+
   function startEditing(client: Client) {
+    setCreating(false);
     setEditing(client);
     setAttempted(false);
     setForm({
@@ -77,10 +88,10 @@ export function ClientsManager({ organizationId }: { organizationId: string }) {
       dui: client.dui,
       phone: client.phone,
       email: isPlaceholderEmail(client.email) ? "" : client.email,
-      password: "",
     });
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
+
+  const showForm = creating || editing !== null;
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -98,7 +109,6 @@ export function ClientsManager({ organizationId }: { organizationId: string }) {
       await create.mutateAsync({
         organization_id: organizationId,
         ...form,
-        password: form.password || undefined,
       });
     }
     resetForm();
@@ -114,21 +124,202 @@ export function ClientsManager({ organizationId }: { organizationId: string }) {
 
   return (
     <>
-      <div>
-        <TechnicalLabel>CLIENTS_01</TechnicalLabel>
-        <h2 className="mt-3 font-display text-3xl font-semibold tracking-[-0.03em]">
-          Clientes
-        </h2>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <TechnicalLabel>CLIENTS_01</TechnicalLabel>
+          <h2 className="mt-3 font-display text-3xl font-semibold tracking-[-0.03em]">
+            Clientes
+          </h2>
+        </div>
+        <Button type="button" onClick={startCreating}>
+          Nuevo cliente
+        </Button>
       </div>
 
-      <div className="mt-8 grid gap-8 xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] xl:items-start">
-        <form
-          onSubmit={submit}
-          noValidate
-          className="border border-charcoal bg-sand/30 p-5"
-        >
+      {clients.isPending ? <div className="mt-8"><LoadingBlock /></div> : null}
+      {clients.isError ? (
+        <div className="mt-8">
+          <ErrorState description="No se pudo cargar el listado de clientes." />
+        </div>
+      ) : null}
+
+      <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1fr)_min(100%,22rem)] xl:items-stretch">
+        <section className="flex min-w-0 flex-col border border-charcoal/20 bg-ivory">
+          <div className="flex flex-col gap-3 border-b border-charcoal/15 px-4 py-3 sm:flex-row sm:items-end sm:justify-between">
+            <TechnicalLabel>CLIENTES REGISTRADOS</TechnicalLabel>
+            <div className="w-full sm:max-w-xs">
+              <label htmlFor="client-search" className="sr-only">
+                Buscar cliente
+              </label>
+              <Input
+                id="client-search"
+                type="search"
+                placeholder="Buscar por nombre, DUI o correo"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </div>
+          </div>
+
+          {clients.isSuccess && scoped.length === 0 ? (
+            <div className="p-4">
+              <EmptyState
+                title="Sin clientes"
+                description="Pulsa «Nuevo cliente» para registrar el primero."
+              />
+            </div>
+          ) : null}
+          {clients.isSuccess && scoped.length > 0 && visibleClients.length === 0 ? (
+            <p className="px-4 py-6 text-sm text-charcoal/60">
+              Ningún cliente coincide con la búsqueda.
+            </p>
+          ) : null}
+
+          {visibleClients.length > 0 ? (
+            <div className="min-h-0 flex-1">
+              <table className="w-full table-fixed border-collapse text-sm">
+                <caption className="sr-only">Clientes registrados en la organización</caption>
+                <thead>
+                  <tr className="bg-charcoal text-ivory">
+                    <th
+                      scope="col"
+                      className="w-[28%] px-3 py-2.5 text-left font-mono text-[10px] uppercase tracking-[0.14em]"
+                    >
+                      Cliente
+                    </th>
+                    <th
+                      scope="col"
+                      className="w-[22%] px-3 py-2.5 text-left font-mono text-[10px] uppercase tracking-[0.14em]"
+                    >
+                      DUI
+                    </th>
+                    <th
+                      scope="col"
+                      className="w-[20%] px-3 py-2.5 text-left font-mono text-[10px] uppercase tracking-[0.14em]"
+                    >
+                      Teléfono
+                    </th>
+                    <th
+                      scope="col"
+                      className="w-[12%] px-3 py-2.5 text-left font-mono text-[10px] uppercase tracking-[0.14em]"
+                    >
+                      Estado
+                    </th>
+                    <th
+                      scope="col"
+                      className="w-[18%] px-3 py-2.5 text-right font-mono text-[10px] uppercase tracking-[0.14em]"
+                    >
+                      Acciones
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleClients.map((client) => (
+                    <tr
+                      key={client.id}
+                      className={
+                        editing?.id === client.id
+                          ? "border-t border-charcoal/10 bg-sand"
+                          : "border-t border-charcoal/10"
+                      }
+                    >
+                      <td className="px-3 py-2.5 align-top">
+                        <span
+                          className={cn(
+                            "block truncate font-medium",
+                            !client.is_active && "text-charcoal/50 line-through",
+                          )}
+                          title={`${client.first_name} ${client.last_name}`}
+                        >
+                          {client.first_name} {client.last_name}
+                        </span>
+                        <span
+                          className="mt-0.5 block truncate text-xs text-charcoal/55"
+                          title={
+                            isPlaceholderEmail(client.email)
+                              ? undefined
+                              : client.email
+                          }
+                        >
+                          {isPlaceholderEmail(client.email)
+                            ? "Sin correo registrado"
+                            : client.email}
+                        </span>
+                      </td>
+                      <td
+                        className={cn(
+                          "whitespace-nowrap px-3 py-2.5 font-mono text-xs align-top",
+                          !client.is_active && "text-charcoal/50 line-through",
+                        )}
+                      >
+                        {client.dui}
+                      </td>
+                      <td
+                        className={cn(
+                          "whitespace-nowrap px-3 py-2.5 font-mono text-xs align-top",
+                          !client.is_active && "text-charcoal/50",
+                        )}
+                        title={client.phone}
+                      >
+                        {client.phone}
+                      </td>
+                      <td className="px-3 py-2.5 align-top">
+                        <span
+                          className={
+                            client.is_active
+                              ? "inline-block border border-olive px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-olive"
+                              : "inline-block border border-charcoal/30 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-charcoal/55"
+                          }
+                        >
+                          {client.is_active ? "Activo" : "De baja"}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5 align-top">
+                        <div className="flex justify-end gap-1.5">
+                          <IconAction
+                            label={`Editar a ${client.first_name} ${client.last_name}`}
+                            onClick={() => startEditing(client)}
+                          >
+                            <Pencil className="h-4 w-4" aria-hidden />
+                          </IconAction>
+                          {client.is_active ? (
+                            <IconAction
+                              label={`Dar de baja a ${client.first_name} ${client.last_name}`}
+                              variant="danger"
+                              onClick={() => setToDeactivate(client)}
+                            >
+                              <Trash2 className="h-4 w-4" aria-hidden />
+                            </IconAction>
+                          ) : (
+                            <IconAction
+                              label={`Reactivar a ${client.first_name} ${client.last_name}`}
+                              disabled={update.isPending}
+                              onClick={() =>
+                                update.mutate({ id: client.id, body: { is_active: true } })
+                              }
+                            >
+                              <RotateCcw className="h-4 w-4" aria-hidden />
+                            </IconAction>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </section>
+
+        <div className="min-h-full">
+          {showForm ? (
+            <form
+              onSubmit={submit}
+              noValidate
+              className="h-full border border-charcoal bg-sand/30 p-5"
+            >
           <TechnicalLabel>{editing ? "EDITAR CLIENTE" : "NUEVO CLIENTE"}</TechnicalLabel>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+          <div className="mt-4 grid gap-4">
             <Field
               label="Nombres"
               htmlFor="client-first-name"
@@ -219,7 +410,7 @@ export function ClientsManager({ organizationId }: { organizationId: string }) {
               htmlFor="client-email"
               hint="Se usa para avisarle de sus reservaciones."
               error={shown("email")}
-              className="sm:col-span-2 xl:col-span-1"
+              className="sm:col-span-2"
             >
               <Input
                 id="client-email"
@@ -239,26 +430,6 @@ export function ClientsManager({ organizationId }: { organizationId: string }) {
                 }
               />
             </Field>
-            <Field
-              label="Contraseña (opcional)"
-              htmlFor="client-password"
-              hint="Mínimo 8 caracteres. Habilita el acceso con DUI o correo; si se omite, entra con Google."
-              error={shown("password")}
-              className="sm:col-span-2 xl:col-span-1"
-            >
-              <Input
-                id="client-password"
-                type="password"
-                minLength={8}
-                maxLength={128}
-                autoComplete="new-password"
-                aria-invalid={Boolean(shown("password"))}
-                value={form.password}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, password: event.target.value }))
-                }
-              />
-            </Field>
           </div>
 
           {attempted && hasErrors ? (
@@ -275,177 +446,38 @@ export function ClientsManager({ organizationId }: { organizationId: string }) {
                   ? "Guardar cambios"
                   : "Registrar cliente"}
             </Button>
-            {editing ? (
-              <Button type="button" variant="ghost" onClick={resetForm}>
-                Cancelar
-              </Button>
-            ) : null}
+            <Button type="button" variant="ghost" onClick={resetForm}>
+              Cancelar
+            </Button>
           </div>
-        </form>
-
-        <section className="min-w-0">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <TechnicalLabel>CLIENTES REGISTRADOS</TechnicalLabel>
-            <div className="w-full sm:w-72">
-              <label htmlFor="client-search" className="sr-only">
-                Buscar cliente
-              </label>
-              <Input
-                id="client-search"
-                type="search"
-                placeholder="Buscar por nombre, DUI o correo"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-              />
-            </div>
-          </div>
-
-          {clients.isPending ? <div className="mt-4"><LoadingBlock /></div> : null}
-          {clients.isError ? (
-            <div className="mt-4">
-              <ErrorState description="No se pudo cargar el listado de clientes." />
-            </div>
-          ) : null}
-          {clients.isSuccess && scoped.length === 0 ? (
-            <div className="mt-4">
-              <EmptyState
-                title="Sin clientes"
-                description="Los clientes registrados aparecerán en esta lista."
-              />
-            </div>
-          ) : null}
-          {clients.isSuccess && scoped.length > 0 && visibleClients.length === 0 ? (
-            <p className="mt-4 text-sm text-charcoal/60">
-              Ningún cliente coincide con la búsqueda.
-            </p>
-          ) : null}
-
-          {visibleClients.length > 0 ? (
-            <div className="mt-4 overflow-x-auto border border-charcoal/20">
-              <table className="w-full min-w-[36rem] border-collapse text-sm">
-                <thead>
-                  <tr className="bg-charcoal text-ivory">
-                    {["Cliente", "DUI", "Teléfono", "Estado", "Acciones"].map((heading) => (
-                      <th
-                        key={heading}
-                        scope="col"
-                        className="px-3 py-2.5 text-left font-mono text-[10px] uppercase tracking-[0.14em]"
-                      >
-                        {heading}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleClients.map((client) => (
-                    <tr
-                      key={client.id}
-                      className={
-                        client.is_active
-                          ? "border-t border-charcoal/10"
-                          : "border-t border-charcoal/10 bg-charcoal/5"
-                      }
-                    >
-                      <td className="px-3 py-2.5">
-                        <span
-                          className={
-                            client.is_active
-                              ? "font-medium"
-                              : "font-medium text-charcoal/50 line-through"
-                          }
-                        >
-                          {client.first_name} {client.last_name}
-                        </span>
-                        <span className="block text-xs text-charcoal/55">
-                          {isPlaceholderEmail(client.email)
-                            ? "Sin correo registrado"
-                            : client.email}
-                        </span>
-                      </td>
-                      <td
-                        className={
-                          client.is_active
-                            ? "px-3 py-2.5 font-mono"
-                            : "px-3 py-2.5 font-mono text-charcoal/50 line-through"
-                        }
-                      >
-                        {client.dui}
-                      </td>
-                      <td
-                        className={
-                          client.is_active
-                            ? "px-3 py-2.5 font-mono"
-                            : "px-3 py-2.5 font-mono text-charcoal/50"
-                        }
-                      >
-                        {client.phone}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <span
-                          className={
-                            client.is_active
-                              ? "border border-olive px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-olive"
-                              : "border border-charcoal/30 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-charcoal/55"
-                          }
-                        >
-                          {client.is_active ? "Activo" : "De baja"}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <div className="flex flex-wrap gap-1">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => startEditing(client)}
-                          >
-                            Editar
-                          </Button>
-                          {client.is_active ? (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="danger"
-                              onClick={() => setToDeactivate(client)}
-                            >
-                              Dar de baja
-                            </Button>
-                          ) : (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="ghost"
-                              disabled={update.isPending}
-                              onClick={() =>
-                                update.mutate({ id: client.id, body: { is_active: true } })
-                              }
-                            >
-                              Reactivar
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : null}
-        </section>
+            </form>
+          ) : (
+            <aside className="flex h-full min-h-[12rem] flex-col justify-center border border-dashed border-charcoal/25 bg-ivory/50 p-6">
+              <TechnicalLabel>REGISTRO</TechnicalLabel>
+              <p className="mt-3 text-sm leading-6 text-charcoal/60">
+                Pulsa <strong className="font-semibold text-charcoal">Nuevo cliente</strong> para
+                abrir el formulario de alta, o el icono de{" "}
+                <strong className="font-semibold text-charcoal">lápiz</strong> en la tabla para
+                editar.
+              </p>
+            </aside>
+          )}
+        </div>
       </div>
 
       <Modal
         open={toDeactivate !== null}
         title="Dar de baja al cliente"
         onClose={() => setToDeactivate(null)}
+        showHeaderClose={false}
       >
         <p className="text-sm leading-6 text-charcoal/75">
           ¿Dar de baja a{" "}
           <strong>
             {toDeactivate?.first_name} {toDeactivate?.last_name}
           </strong>
-          ? Sus datos y su historial se conservan, pero no podrá iniciar sesión ni hacer
-          nuevas reservaciones. Podrás reactivarlo cuando quieras.
+          ? Sus datos y su historial se conservan, pero no podrá hacer nuevas
+          reservaciones. Podrás reactivarlo cuando quieras.
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
           <Button
@@ -479,10 +511,6 @@ function validateClient(form: ClientForm): Record<keyof ClientForm, string> {
     email: EMAIL_PATTERN.test(form.email)
       ? ""
       : "Escribe un correo válido, por ejemplo cliente@correo.com.",
-    password:
-      form.password && form.password.length < 8
-        ? "La contraseña debe tener al menos 8 caracteres."
-        : "",
   };
 }
 
@@ -507,8 +535,6 @@ function changedFields(original: Client, form: ClientForm): Partial<ClientForm> 
   for (const key of ["first_name", "last_name", "dui", "phone", "email"] as const) {
     if (current[key] !== original[key]) changes[key] = current[key];
   }
-  // La contraseña no se compara: solo se envia cuando el admin escribe una nueva.
-  if (form.password) changes.password = form.password;
   return changes;
 }
 

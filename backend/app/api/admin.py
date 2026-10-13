@@ -36,9 +36,11 @@ from app.schemas.facility import (
     ScheduleReplaceRequest,
     ScheduleResponse,
 )
+from app.schemas.payment import PaymentCreate, PaymentResponse, ReservationPaymentsResponse
 from app.schemas.reservation import AdminReservationResponse, ReservationNoteRequest
 from app.services.client_service import ClientService
 from app.services.facility_service import FacilityService
+from app.services.payment_service import PaymentService, RegisterPayment
 from app.services.rate_service import RateService
 from app.services.reservation_service import ReservationService
 from app.services.schedule_service import ScheduleService
@@ -64,17 +66,29 @@ async def _assert_facility_access(
 # --------------------------------------------------------------------------- #
 
 
+def _client_organization_scope(staff: UserModel) -> UUID | None:
+    """ADMIN ve todos los clientes; ENCARGADO solo los de su organización."""
+    return staff.organization_id if staff.role == UserRole.ENCARGADO else None
+
+
 @router.get("/clients", response_model=list[ClientResponse])
-async def list_clients(session: SessionDep, staff: AdminUser) -> list[ClientResponse]:
-    clients = await ClientService(session).list_registered()
+async def list_clients(
+    session: SessionDep, staff: CatalogStaffUser
+) -> list[ClientResponse]:
+    clients = await ClientService(session).list_registered(
+        organization_id=_client_organization_scope(staff)
+    )
     return [ClientResponse.model_validate(client) for client in clients]
 
 
 @router.post("/clients", response_model=ClientResponse, status_code=201)
 async def create_client(
-    payload: ClientCreate, session: SessionDep, staff: AdminUser
+    payload: ClientCreate, session: SessionDep, staff: CatalogStaffUser
 ) -> ClientResponse:
-    client = await ClientService(session).create(payload.model_dump())
+    data = payload.model_dump()
+    if staff.role == UserRole.ENCARGADO:
+        data["organization_id"] = staff.organization_id
+    client = await ClientService(session).create(data)
     return ClientResponse.model_validate(client)
 
 
@@ -87,10 +101,12 @@ async def update_client(
     client_id: UUID,
     payload: ClientUpdate,
     session: SessionDep,
-    staff: AdminUser,
+    staff: CatalogStaffUser,
 ) -> ClientResponse:
     client = await ClientService(session).update(
-        client_id, payload.model_dump(exclude_unset=True)
+        client_id,
+        payload.model_dump(exclude_unset=True),
+        organization_id=_client_organization_scope(staff),
     )
     return ClientResponse.model_validate(client)
 
@@ -137,6 +153,47 @@ async def list_reservations(
         page=page,
         limit=limit,
     )
+
+
+@router.get(
+    "/reservations/{reservation_id}/payments",
+    response_model=ReservationPaymentsResponse,
+)
+async def list_reservation_payments(
+    reservation_id: UUID,
+    encargado: ReservationStaffUser,
+    session: SessionDep,
+) -> ReservationPaymentsResponse:
+    quoted, total_paid, currency, payments = await PaymentService(
+        session
+    ).summary_for_reservation(reservation_id, encargado)
+    balance = max(quoted - total_paid, Decimal("0"))
+    return ReservationPaymentsResponse(
+        quoted_amount=quoted,
+        total_paid=total_paid,
+        balance_due=balance,
+        currency=currency,
+        payments=[PaymentResponse.model_validate(item) for item in payments],
+    )
+
+
+@router.post(
+    "/reservations/{reservation_id}/payments",
+    response_model=PaymentResponse,
+    status_code=201,
+)
+async def register_reservation_payment(
+    reservation_id: UUID,
+    payload: PaymentCreate,
+    encargado: ReservationStaffUser,
+    session: SessionDep,
+) -> PaymentResponse:
+    payment = await PaymentService(session).register(
+        reservation_id,
+        encargado,
+        RegisterPayment(amount=payload.amount, note=payload.note),
+    )
+    return PaymentResponse.model_validate(payment)
 
 
 @router.post(

@@ -23,9 +23,11 @@ from app.domain.rules import (
     assert_completable,
     assert_fits_slots,
     assert_period,
+    assert_sufficient_payment,
     assert_transition,
     assert_within_operating_hours,
 )
+from app.repositories.payment_repository import PaymentRepository
 from app.infrastructure.models import ReservationModel, UserModel
 from app.repositories.reservation_repository import ReservationRepository
 from app.services.audit_service import AuditService
@@ -164,6 +166,10 @@ class ReservationService:
     ) -> ReservationModel:
         """RN-07: solo el encargado de la misma organización confirma."""
         reservation = await self._reservation_for_encargado(reservation_id, encargado)
+        total_paid = await PaymentRepository(self.session).total_for_reservation(
+            reservation.id, organization_id=reservation.organization_id
+        )
+        assert_sufficient_payment(total_paid, reservation.quoted_amount)
         return await self._transition(
             reservation, ReservationStatus.CONFIRMED, encargado
         )

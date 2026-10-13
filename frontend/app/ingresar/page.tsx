@@ -6,18 +6,15 @@ import { useEffect, useState } from "react";
 import { TechnicalLabel } from "@/components/atoms/technical-label";
 import { PublicLayout } from "@/components/templates/public-layout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GoogleAuthButton } from "@/features/auth/auth-button";
 import { useAuth } from "@/features/auth/auth-context";
 
-const DEV_AUTH_ENABLED = process.env.NEXT_PUBLIC_DEV_AUTH_ENABLED === "true";
-
 export default function SignInPage() {
   const router = useRouter();
-  const { user, isAdmin, isReservationManager, loginWithPassword, loginForDevelopment } =
-    useAuth();
+  const { user, isAdmin, isReservationManager, loginWithPassword } = useAuth();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -116,31 +113,6 @@ export default function SignInPage() {
               </div>
             </div>
           </CardContent>
-
-          {DEV_AUTH_ENABLED ? (
-            <CardFooter className="flex-col items-stretch gap-3 border-t bg-muted/50">
-              <TechnicalLabel>ACCESO LOCAL DE DESARROLLO</TechnicalLabel>
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" onClick={() => void loginForDevelopment("ENCARGADO")}>
-                  Entrar como encargado
-                </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => void loginForDevelopment("CLIENT")}
-                >
-                  Entrar como cliente
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => void loginForDevelopment("ADMIN")}
-                >
-                  Entrar como admin
-                </Button>
-              </div>
-            </CardFooter>
-          ) : null}
         </Card>
       </section>
     </PublicLayout>

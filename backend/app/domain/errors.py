@@ -179,3 +179,21 @@ class ReservationConflict(DomainError):
     status = 409
     title = "Reservation conflict"
     slug = "reservation-conflict"
+
+
+class InvalidPaymentAmount(DomainError):
+    status = 422
+    title = "Invalid payment amount"
+    slug = "invalid-payment-amount"
+
+
+class InsufficientPayment(DomainError):
+    status = 409
+    title = "Insufficient payment"
+    slug = "insufficient-payment"
+
+
+class PaymentNotAllowed(DomainError):
+    status = 409
+    title = "Payment not allowed"
+    slug = "payment-not-allowed"

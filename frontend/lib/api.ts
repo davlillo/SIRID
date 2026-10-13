@@ -7,6 +7,8 @@
 
 import type {
   AdminReservation,
+  ReservationPayment,
+  ReservationPaymentsSummary,
   AdminStats,
   Availability,
   Client,
@@ -249,6 +251,13 @@ export const adminApi = {
   stats: () => request<AdminStats>("/admin/stats"),
   reservations: (filters: AdminReservationFilters = {}) =>
     request<Page<AdminReservation>>(`/admin/reservations${query(filters)}`),
+  reservationPayments: (id: string) =>
+    request<ReservationPaymentsSummary>(`/admin/reservations/${id}/payments`),
+  registerPayment: (id: string, body: { amount: string; note?: string | null }) =>
+    request<ReservationPayment>(`/admin/reservations/${id}/payments`, {
+      method: "POST",
+      body,
+    }),
   confirm: (id: string) =>
     request<AdminReservation>(`/admin/reservations/${id}/confirm`, { method: "POST" }),
   cancel: (id: string, note?: string) =>

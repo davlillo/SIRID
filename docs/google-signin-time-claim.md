@@ -1,6 +1,6 @@
 # Diagnóstico: rechazo intermitente del inicio de sesión de Google
 
-> **Estado:** causa identificada; la tolerancia temporal aún no se cambió.
+> **Estado:** causa identificada; tolerancia de **30 s** aplicada en `GoogleIdentityVerifier`.
 
 ## Síntoma
 
@@ -26,9 +26,7 @@ El verificador rechaza algunos ID tokens porque su claim **`iat` (issued at)** q
 
 ## Corrección considerada
 
-Google Auth permite proporcionar un margen mediante `clock_skew_in_seconds`. Un margen pequeño y explícito —por ejemplo, 30 segundos— aceptaría tokens emitidos hasta ese intervalo en el futuro y también tokens expirados dentro del mismo margen. **Ese cambio no se aplicó**; se mantiene pendiente de aprobación porque amplía ligeramente la ventana temporal de aceptación.
-
-Si se aprueba, aplicar el margen solo en la verificación del ID token, cubrirlo con pruebas para `iat`/`exp` dentro y fuera del límite y repetir el flujo de login/logout varias veces.
+Google Auth permite proporcionar un margen mediante `clock_skew_in_seconds`. El backend usa **30 segundos** (`TOKEN_CLOCK_SKEW_SECONDS` en `google_identity.py`), cubierto por `test_google_identity.py`.
 
 ## Referencia
 
