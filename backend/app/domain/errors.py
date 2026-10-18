@@ -141,6 +141,12 @@ class InvalidReservationPeriod(DomainError):
     slug = "invalid-reservation-period"
 
 
+class InvalidReportPeriod(DomainError):
+    status = 422
+    title = "Invalid report period"
+    slug = "invalid-report-period"
+
+
 class OutsideOperatingHours(DomainError):
     status = 422
     title = "Requested period is outside operating hours"

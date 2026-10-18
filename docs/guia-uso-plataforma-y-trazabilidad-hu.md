@@ -122,7 +122,8 @@ Las instalaciones demo del seed pertenecen a esa organización.
 | `/mapa` | Plano 3D del complejo (React Three Fiber) | experiencia |
 | `/mis-reservas` | Historial del cliente | HU-11 |
 | `/ingresar` | Inicio de sesión (Google / dev) | HU-13 |
-| `/admin` | Panel con indicadores | HU-12 (parcial) |
+| `/admin` | Administración de organizaciones y usuarios | — |
+| `/admin/reportes` | Reporte resumido y PDF de reservaciones | HU-12 |
 | `/admin/instalaciones` | Alta/edición de instalaciones + horario + tarifas | **HU-07, HU-08, HU-09** |
 | `/admin/clientes` | Registro y edición de clientes | HU-01 |
 | `/admin/reservas` | Confirmar / cancelar / completar reservas | HU-04, HU-05, HU-06 |
@@ -157,7 +158,7 @@ Backend: `api/` (rutas) → `services/` (casos de uso) → `repositories/` (SQL)
 | **HU-06** Completar reservación | `/admin/reservas` | `POST /v1/admin/reservations/{id}/complete` | `services/reservation_service.py` | Implementado |
 | **HU-10** Registrar pago/anticipo | `/admin/reservas` (panel detalle) | `POST/GET /v1/admin/reservations/{id}/payments` | `reservation_payments` | **Implementado** |
 | **HU-11** Historial de reservaciones | `/mis-reservas` | `GET /v1/reservations/me`, `GET /v1/reservations/{id}` | `repositories/reservation_repository.py` | Implementado |
-| **HU-12** Reportes | `/admin` (indicadores) | `GET /v1/admin/stats`; filtros en `GET /v1/admin/reservations` | `repositories/reservation_repository.py` | Parcial (no exporta PDF/Excel) |
+| **HU-12** Reportes | `/admin/reportes` | `GET /v1/admin/reports/reservations` | `repositories/reservation_repository.py` | Implementado; PDF mediante impresión del reporte filtrado |
 
 ### Transversal — Multi-organización
 

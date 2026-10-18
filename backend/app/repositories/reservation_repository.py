@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import Select, func, select
@@ -6,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.enums import ACTIVE_RESERVATION_STATUSES, ReservationStatus
 from app.infrastructure.models import (
+    FacilityModel,
     NotificationLogModel,
     ReservationEventModel,
     ReservationModel,
@@ -103,19 +105,85 @@ class ReservationRepository:
         )
 
     async def count_by_status(
-        self, status: ReservationStatus, *, organization_id: UUID
+        self,
+        status: ReservationStatus,
+        *,
+        organization_id: UUID,
+        starts_at: datetime | None = None,
+        ends_at: datetime | None = None,
     ) -> int:
-        return int(
-            await self.session.scalar(
-                select(func.count())
-                .select_from(ReservationModel)
-                .where(
-                    ReservationModel.status == status,
-                    ReservationModel.organization_id == organization_id,
-                )
+        query = (
+            select(func.count())
+            .select_from(ReservationModel)
+            .where(
+                ReservationModel.status == status,
+                ReservationModel.organization_id == organization_id,
             )
-            or 0
         )
+        if starts_at is not None:
+            query = query.where(ReservationModel.starts_at >= starts_at)
+        if ends_at is not None:
+            query = query.where(ReservationModel.starts_at < ends_at)
+        return int(await self.session.scalar(query) or 0)
+
+    async def reservation_report_for_admin(
+        self,
+        *,
+        organization_id: UUID,
+        starts_at: datetime,
+        ends_at: datetime,
+        status: ReservationStatus | None = None,
+        facility_id: UUID | None = None,
+    ) -> list[tuple[ReservationStatus, UUID, str, str, int, Decimal]]:
+        filters = [
+            ReservationModel.organization_id == organization_id,
+            ReservationModel.starts_at >= starts_at,
+            ReservationModel.starts_at < ends_at,
+        ]
+        if status is not None:
+            filters.append(ReservationModel.status == status)
+        if facility_id is not None:
+            filters.append(ReservationModel.facility_id == facility_id)
+
+        rows = await self.session.execute(
+            select(
+                ReservationModel.status,
+                FacilityModel.id,
+                FacilityModel.name,
+                ReservationModel.currency,
+                func.count(ReservationModel.id),
+                func.sum(ReservationModel.quoted_amount),
+            )
+            .join(FacilityModel, ReservationModel.facility_id == FacilityModel.id)
+            .where(*filters)
+            .group_by(
+                ReservationModel.status,
+                FacilityModel.id,
+                FacilityModel.name,
+                ReservationModel.currency,
+            )
+            .order_by(
+                FacilityModel.name, ReservationModel.status, ReservationModel.currency
+            )
+        )
+        return [
+            (
+                row_status,
+                row_facility_id,
+                facility_name,
+                currency,
+                int(reservations),
+                Decimal(quoted_amount),
+            )
+            for (
+                row_status,
+                row_facility_id,
+                facility_name,
+                currency,
+                reservations,
+                quoted_amount,
+            ) in rows
+        ]
 
     async def summary_between(
         self, starts_at: datetime, ends_at: datetime, *, organization_id: UUID

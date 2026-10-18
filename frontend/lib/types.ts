@@ -221,6 +221,17 @@ export type AdminStats = {
   bookable_facilities: number;
 };
 
+export type AdminReservationReport = {
+  total_reservations: number;
+  by_status: { status: ReservationStatus; reservations: number }[];
+  by_facility: {
+    facility_id: string;
+    facility_name: string;
+    reservations: number;
+  }[];
+  quoted_by_currency: { currency: string; quoted_amount: string }[];
+};
+
 export type NotificationLog = {
   id: string;
   reservation_id: string | null;

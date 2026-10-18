@@ -2,7 +2,12 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { ApiError, adminApi, type AdminReservationFilters } from "@/lib/api";
+import {
+  ApiError,
+  adminApi,
+  type AdminReservationFilters,
+  type AdminReservationReportFilters,
+} from "@/lib/api";
 import type { ScheduleInput } from "@/lib/types";
 import { useToast } from "../ui/toast-context";
 
@@ -67,6 +72,17 @@ export function useAdminReservations(filters: AdminReservationFilters) {
   return useQuery({
     queryKey: ["admin", "reservations", filters],
     queryFn: () => adminApi.reservations(filters),
+  });
+}
+
+export function useReservationReport(filters: AdminReservationReportFilters | null) {
+  return useQuery({
+    queryKey: ["admin", "reports", "reservations", filters],
+    queryFn: () => {
+      if (!filters) throw new Error("Report filters are required.");
+      return adminApi.reservationReport(filters);
+    },
+    enabled: filters !== null,
   });
 }
 
