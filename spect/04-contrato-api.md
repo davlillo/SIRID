@@ -117,6 +117,7 @@ Ejemplo de creacion:
 | Metodo | Ruta | Roles |
 |---|---|---|
 | GET | `/admin/reservations` | ENCARGADO, solo su organización |
+| GET | `/admin/reports/reservations` | ENCARGADO, solo su organización |
 | POST | `/admin/reservations/{id}/confirm` | ENCARGADO, solo su organización |
 | POST | `/admin/reservations/{id}/cancel` | ENCARGADO, solo su organización |
 | POST | `/admin/reservations/{id}/complete` | ENCARGADO, solo su organización |
@@ -132,6 +133,8 @@ Ejemplo de creacion:
 | GET/POST/PATCH | `/admin/organizations[/{id}]` | ADMIN global |
 | GET/POST/PATCH | `/admin/users[/{id}]` | ADMIN global |
 | GET | `/admin/stats` | ENCARGADO, solo su organización |
+
+`GET /admin/reports/reservations` requiere `date_from` y `date_to` (`YYYY-MM-DD`, inclusivas). Acepta `facility_id` y `status` opcionales. La respuesta resume el total, los conteos por estado e instalación y los importes cotizados agrupados por moneda; un rango sin coincidencias devuelve agregados vacíos.
 
 `rates/publish` cierra o desactiva la tarifa vigente e inserta una nueva version. Las
 reservas existentes conservan el importe cotizado y las nuevas usan el monto publicado.

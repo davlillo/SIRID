@@ -2,11 +2,12 @@
 
 import uuid
 from datetime import datetime, time, timedelta
+from decimal import Decimal
 
 import pytest
 from app.core.config import settings
-from app.domain.enums import ReservationStatus
-from app.infrastructure.models import OrganizationModel, ReservationModel
+from app.domain.enums import ReservationStatus, UserRole
+from app.infrastructure.models import OrganizationModel, ReservationModel, UserModel
 
 from tests.conftest import (
     TEST_ORGANIZATION_ID,
@@ -727,3 +728,235 @@ class TestStatusFilter:
         )
 
         assert pending.json()["total"] == 0
+
+
+class TestReservationReports:
+    async def test_report_summarizes_selected_period_facility_and_status(
+        self, client, customer, encargado, facility, twin_facility, db_session
+    ):
+        report_day = datetime(2030, 5, 12, tzinfo=settings.timezone)
+        reservations = [
+            ReservationModel(
+                organization_id=facility.organization_id,
+                customer_id=customer.id,
+                facility_id=facility.id,
+                starts_at=report_day.replace(hour=9),
+                ends_at=report_day.replace(hour=10),
+                status=ReservationStatus.PENDING,
+                quoted_amount=Decimal("40.00"),
+                currency="USD",
+            ),
+            ReservationModel(
+                organization_id=facility.organization_id,
+                customer_id=customer.id,
+                facility_id=facility.id,
+                starts_at=report_day.replace(hour=11),
+                ends_at=report_day.replace(hour=12),
+                status=ReservationStatus.CONFIRMED,
+                quoted_amount=Decimal("60.00"),
+                currency="USD",
+            ),
+            ReservationModel(
+                organization_id=facility.organization_id,
+                customer_id=customer.id,
+                facility_id=twin_facility.id,
+                starts_at=report_day.replace(hour=9),
+                ends_at=report_day.replace(hour=10),
+                status=ReservationStatus.CANCELLED,
+                quoted_amount=Decimal("90.00"),
+                currency="USD",
+            ),
+        ]
+        db_session.add_all(reservations)
+        await db_session.commit()
+        authenticate(client, encargado)
+
+        response = await client.get(
+            "/v1/admin/reports/reservations",
+            params={
+                "date_from": report_day.date().isoformat(),
+                "date_to": report_day.date().isoformat(),
+                "facility_id": str(facility.id),
+            },
+        )
+
+        assert response.status_code == 200
+        report = response.json()
+        assert report["total_reservations"] == 2
+        assert report["by_status"] == [
+            {"status": "PENDING", "reservations": 1},
+            {"status": "CONFIRMED", "reservations": 1},
+            {"status": "CANCELLED", "reservations": 0},
+            {"status": "COMPLETED", "reservations": 0},
+        ]
+        assert report["by_facility"] == [
+            {
+                "facility_id": str(facility.id),
+                "facility_name": facility.name,
+                "reservations": 2,
+            }
+        ]
+        assert report["quoted_by_currency"] == [
+            {"currency": "USD", "quoted_amount": "100.00"}
+        ]
+
+        filtered = await client.get(
+            "/v1/admin/reports/reservations",
+            params={
+                "date_from": report_day.date().isoformat(),
+                "date_to": report_day.date().isoformat(),
+                "facility_id": str(facility.id),
+                "status": ReservationStatus.CONFIRMED.value,
+            },
+        )
+        assert filtered.json()["total_reservations"] == 1
+        assert filtered.json()["quoted_by_currency"] == [
+            {"currency": "USD", "quoted_amount": "60.00"}
+        ]
+
+    async def test_report_returns_empty_aggregates_when_no_reservations_match(
+        self, client, encargado
+    ):
+        authenticate(client, encargado)
+
+        response = await client.get(
+            "/v1/admin/reports/reservations",
+            params={"date_from": "2030-05-12", "date_to": "2030-05-12"},
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "total_reservations": 0,
+            "by_status": [
+                {"status": "PENDING", "reservations": 0},
+                {"status": "CONFIRMED", "reservations": 0},
+                {"status": "CANCELLED", "reservations": 0},
+                {"status": "COMPLETED", "reservations": 0},
+            ],
+            "by_facility": [],
+            "quoted_by_currency": [],
+        }
+
+    async def test_report_rejects_an_inverted_date_range(self, client, encargado):
+        authenticate(client, encargado)
+
+        response = await client.get(
+            "/v1/admin/reports/reservations",
+            params={"date_from": "2030-05-13", "date_to": "2030-05-12"},
+        )
+
+        assert response.status_code == 422
+
+    async def test_report_is_limited_to_the_encargado_organization(
+        self, client, customer, encargado, facility, db_session
+    ):
+        other_org_id = uuid.uuid4()
+        other_org = OrganizationModel(
+            id=other_org_id,
+            slug="organizacion-reporte-externa",
+            name="Organización Externa",
+            email_domain="external.example.com",
+        )
+        db_session.add(other_org)
+        await db_session.commit()
+        other_facility = await make_facility(
+            db_session,
+            "cancha-reporte-externa",
+            "Cancha Externa",
+            organization_id=other_org_id,
+        )
+        other_customer = UserModel(
+            id=uuid.uuid4(),
+            organization_id=other_org_id,
+            google_subject="external-report-customer",
+            email="external-report@example.com",
+            name="Cliente Externo",
+            role=UserRole.CLIENT,
+        )
+        db_session.add(other_customer)
+        await db_session.commit()
+
+        report_day = datetime(2030, 5, 12, tzinfo=settings.timezone)
+        db_session.add_all(
+            [
+                ReservationModel(
+                    organization_id=facility.organization_id,
+                    customer_id=customer.id,
+                    facility_id=facility.id,
+                    starts_at=report_day.replace(hour=9),
+                    ends_at=report_day.replace(hour=10),
+                    status=ReservationStatus.CONFIRMED,
+                    quoted_amount=Decimal("40.00"),
+                    currency="USD",
+                ),
+                ReservationModel(
+                    organization_id=other_org_id,
+                    customer_id=other_customer.id,
+                    facility_id=other_facility.id,
+                    starts_at=report_day.replace(hour=9),
+                    ends_at=report_day.replace(hour=10),
+                    status=ReservationStatus.CONFIRMED,
+                    quoted_amount=Decimal("90.00"),
+                    currency="USD",
+                ),
+            ]
+        )
+        await db_session.commit()
+        authenticate(client, encargado)
+
+        response = await client.get(
+            "/v1/admin/reports/reservations",
+            params={"date_from": "2030-05-12", "date_to": "2030-05-12"},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["total_reservations"] == 1
+        assert response.json()["by_facility"][0]["facility_id"] == str(facility.id)
+
+    async def test_only_reservation_staff_can_generate_reports(self, client, admin):
+        authenticate(client, admin)
+
+        response = await client.get(
+            "/v1/admin/reports/reservations",
+            params={"date_from": "2030-05-12", "date_to": "2030-05-12"},
+        )
+
+        assert response.status_code == 403
+
+    async def test_confirmed_today_stat_excludes_other_dates(
+        self, client, customer, encargado, facility, db_session
+    ):
+        today = datetime.now(settings.timezone).date()
+        today_start = datetime.combine(today, time(9), tzinfo=settings.timezone)
+        yesterday_start = today_start - timedelta(days=1)
+        db_session.add_all(
+            [
+                ReservationModel(
+                    organization_id=facility.organization_id,
+                    customer_id=customer.id,
+                    facility_id=facility.id,
+                    starts_at=today_start,
+                    ends_at=today_start + timedelta(hours=1),
+                    status=ReservationStatus.CONFIRMED,
+                    quoted_amount=Decimal("40.00"),
+                    currency="USD",
+                ),
+                ReservationModel(
+                    organization_id=facility.organization_id,
+                    customer_id=customer.id,
+                    facility_id=facility.id,
+                    starts_at=yesterday_start,
+                    ends_at=yesterday_start + timedelta(hours=1),
+                    status=ReservationStatus.CONFIRMED,
+                    quoted_amount=Decimal("40.00"),
+                    currency="USD",
+                ),
+            ]
+        )
+        await db_session.commit()
+        authenticate(client, encargado)
+
+        response = await client.get("/v1/admin/stats")
+
+        assert response.status_code == 200
+        assert response.json()["confirmed_today"] == 1

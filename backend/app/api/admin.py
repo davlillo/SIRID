@@ -7,7 +7,6 @@ from uuid import UUID
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
 
 from app.api.deps import (
-    AdminUser,
     CatalogStaffUser,
     ReservationStaffUser,
     SessionDep,
@@ -16,11 +15,16 @@ from app.api.deps import (
 from app.api.notifications import schedule_notification
 from app.core.config import settings
 from app.domain.enums import FacilityKind, ReservationStatus, SportType, UserRole, Zone
+from app.domain.errors import InvalidReportPeriod
 from app.infrastructure.models import UserModel
 from app.repositories.reservation_repository import ReservationRepository
 from app.schemas.admin import (
     AdminStatsResponse,
     NotificationLogResponse,
+    ReservationReportCurrencySummary,
+    ReservationReportFacilitySummary,
+    ReservationReportResponse,
+    ReservationReportStatusSummary,
     ReservationEventResponse,
 )
 from app.schemas.client import ClientCreate, ClientResponse, ClientUpdate
@@ -36,7 +40,11 @@ from app.schemas.facility import (
     ScheduleReplaceRequest,
     ScheduleResponse,
 )
-from app.schemas.payment import PaymentCreate, PaymentResponse, ReservationPaymentsResponse
+from app.schemas.payment import (
+    PaymentCreate,
+    PaymentResponse,
+    ReservationPaymentsResponse,
+)
 from app.schemas.reservation import AdminReservationResponse, ReservationNoteRequest
 from app.services.client_service import ClientService
 from app.services.facility_service import FacilityService
@@ -152,6 +160,69 @@ async def list_reservations(
         total=total,
         page=page,
         limit=limit,
+    )
+
+
+@router.get(
+    "/reports/reservations",
+    response_model=ReservationReportResponse,
+    summary="Resume las reservaciones filtradas por periodo, instalación y estado",
+)
+async def read_reservation_report(
+    session: SessionDep,
+    encargado: ReservationStaffUser,
+    date_from: date,
+    date_to: date,
+    status: ReservationStatus | None = None,
+    facility_id: UUID | None = None,
+) -> ReservationReportResponse:
+    if date_from > date_to:
+        raise InvalidReportPeriod(
+            "La fecha inicial no puede ser posterior a la fecha final."
+        )
+
+    timezone = settings.timezone
+    starts_at = datetime.combine(date_from, time.min, tzinfo=timezone)
+    ends_at = datetime.combine(date_to + timedelta(days=1), time.min, tzinfo=timezone)
+    groups = await ReservationRepository(session).reservation_report_for_admin(
+        organization_id=encargado.organization_id,
+        starts_at=starts_at,
+        ends_at=ends_at,
+        status=status,
+        facility_id=facility_id,
+    )
+
+    status_counts = {item: 0 for item in ReservationStatus}
+    facility_counts: dict[UUID, tuple[str, int]] = {}
+    currency_totals: dict[str, Decimal] = {}
+    total_reservations = 0
+    for row_status, row_facility_id, facility_name, currency, count, amount in groups:
+        total_reservations += count
+        status_counts[row_status] += count
+        previous_name, previous_count = facility_counts.get(
+            row_facility_id, (facility_name, 0)
+        )
+        facility_counts[row_facility_id] = (previous_name, previous_count + count)
+        currency_totals[currency] = currency_totals.get(currency, Decimal("0")) + amount
+
+    return ReservationReportResponse(
+        total_reservations=total_reservations,
+        by_status=[
+            ReservationReportStatusSummary(status=key, reservations=count)
+            for key, count in status_counts.items()
+        ],
+        by_facility=[
+            ReservationReportFacilitySummary(
+                facility_id=key, facility_name=name, reservations=count
+            )
+            for key, (name, count) in sorted(
+                facility_counts.items(), key=lambda entry: entry[1][0]
+            )
+        ],
+        quoted_by_currency=[
+            ReservationReportCurrencySummary(currency=key, quoted_amount=amount)
+            for key, amount in sorted(currency_totals.items())
+        ],
     )
 
 
@@ -314,7 +385,10 @@ async def read_stats(
         ReservationStatus.PENDING, organization_id=encargado.organization_id
     )
     confirmed_today = await repository.count_by_status(
-        ReservationStatus.CONFIRMED, organization_id=encargado.organization_id
+        ReservationStatus.CONFIRMED,
+        organization_id=encargado.organization_id,
+        starts_at=day_start,
+        ends_at=day_end,
     )
     reservations_today, quoted_today = await repository.summary_between(
         day_start, day_end, organization_id=encargado.organization_id
@@ -412,9 +486,7 @@ async def update_facility(
             organization_id=staff.organization_id,
             include_inactive=True,
         )
-    facility = await service.update(
-        facility_id, payload.model_dump(exclude_unset=True)
-    )
+    facility = await service.update(facility_id, payload.model_dump(exclude_unset=True))
     return FacilityDetailResponse.model_validate(facility)
 
 

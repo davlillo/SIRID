@@ -7,6 +7,7 @@
 
 import type {
   AdminReservation,
+  AdminReservationReport,
   ReservationPayment,
   ReservationPaymentsSummary,
   AdminStats,
@@ -22,6 +23,7 @@ import type {
   RangeCheck,
   Rate,
   Reservation,
+  ReservationStatus,
   Schedule,
   ScheduleInput,
   User,
@@ -225,6 +227,13 @@ export type AdminReservationFilters = {
   limit?: number;
 };
 
+export type AdminReservationReportFilters = {
+  status?: ReservationStatus;
+  facility_id?: string;
+  date_from: string;
+  date_to: string;
+};
+
 export const adminApi = {
   clients: () => request<Client[]>("/admin/clients"),
   createClient: (body: {
@@ -249,6 +258,8 @@ export const adminApi = {
     }>,
   ) => request<Client>(`/admin/clients/${id}`, { method: "PATCH", body }),
   stats: () => request<AdminStats>("/admin/stats"),
+  reservationReport: (filters: AdminReservationReportFilters) =>
+    request<AdminReservationReport>(`/admin/reports/reservations${query(filters)}`),
   reservations: (filters: AdminReservationFilters = {}) =>
     request<Page<AdminReservation>>(`/admin/reservations${query(filters)}`),
   reservationPayments: (id: string) =>
