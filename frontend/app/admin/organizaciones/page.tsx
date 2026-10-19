@@ -53,7 +53,7 @@ export default function AdminOrganizationsPage() {
 
       <form
         onSubmit={submit}
-        className="mt-8 grid gap-4 border border-charcoal bg-sand/30 p-5 md:grid-cols-3"
+        className="sirid-panel mt-8 grid gap-4 bg-sand/25 p-6 md:grid-cols-3"
       >
         <Field label="Nombre" htmlFor="organization-name">
           <Input
@@ -131,7 +131,7 @@ export default function AdminOrganizationsPage() {
           {organizations.data?.map((organization) => (
             <li
               key={organization.id}
-              className="flex flex-wrap items-center justify-between gap-4 border border-charcoal/20 bg-ivory px-4 py-3"
+              className="sirid-panel flex flex-wrap items-center justify-between gap-4 px-5 py-5"
             >
               <div>
                 <h2 className="font-display text-xl font-semibold">{organization.name}</h2>
@@ -139,7 +139,7 @@ export default function AdminOrganizationsPage() {
                   /{organization.slug} · {organization.email_domain ?? "Dominio sin asignar"}
                 </p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <ButtonLink
                   href={`/admin/organizaciones/${organization.id}`}
                   size="sm"

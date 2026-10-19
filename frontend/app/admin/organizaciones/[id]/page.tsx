@@ -33,7 +33,7 @@ export default function AdminOrganizationDetailPage() {
       >
         ← Organizaciones
       </Link>
-      <TechnicalLabel>ORGANIZATION_DETAIL</TechnicalLabel>
+      <div className="mt-6"><TechnicalLabel>DETALLE DE ORGANIZACIÓN</TechnicalLabel></div>
       <h1 className="mt-3 font-display text-4xl font-semibold tracking-[-0.03em]">
         {organization?.name ?? "Organización"}
       </h1>
@@ -52,7 +52,7 @@ export default function AdminOrganizationDetailPage() {
             aria-selected={tab === value}
             onClick={() => setTab(value)}
             className={cn(
-              "-mb-px border-b-2 px-4 py-2.5 text-sm transition-colors duration-fast",
+              "-mb-px min-h-11 border-b-2 px-4 py-2.5 text-sm transition-colors duration-fast",
               tab === value
                 ? "border-charcoal font-semibold text-charcoal"
                 : "border-transparent text-charcoal/60 hover:text-charcoal",

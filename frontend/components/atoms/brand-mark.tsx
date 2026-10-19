@@ -21,8 +21,12 @@ export function BrandMark({
           src={inverse ? "/brand/davlillos-symbol-inverse.svg" : "/brand/davlillos-symbol-primary.svg"}
           alt=""
           aria-hidden="true"
-          className="h-7 w-7"
+          className={cn("h-7 w-7", !inverse && "dark:hidden")}
         />
+        {!inverse ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src="/brand/davlillos-symbol-inverse.svg" alt="" aria-hidden="true" className="hidden h-7 w-7 dark:block" />
+        ) : null}
         <span className="font-display text-lg font-bold leading-none tracking-[-0.04em]">
           SIRID
         </span>

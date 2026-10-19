@@ -22,7 +22,7 @@ export default function SignInPage() {
   useEffect(() => {
     if (!user) return;
     if (isAdmin) router.replace("/admin");
-    else if (isReservationManager) router.replace("/admin/reservas");
+    else if (isReservationManager) router.replace("/encargado");
     else router.replace("/mis-reservas");
   }, [user, isAdmin, isReservationManager, router]);
 
@@ -40,8 +40,8 @@ export default function SignInPage() {
 
   return (
     <PublicLayout>
-      <section className="grid items-center gap-12 py-20 md:grid-cols-2">
-        <div>
+      <section className="sirid-page-banner my-6 grid items-center gap-12 px-7 py-16 sm:px-12 md:grid-cols-2 md:py-20">
+        <div className="relative z-10">
           <TechnicalLabel>AUTH_01</TechnicalLabel>
           <h1 className="dvl-display mt-4">Ingresa para reservar.</h1>
           <p className="mt-6 max-w-md text-lg leading-8 text-charcoal/70">
@@ -51,7 +51,7 @@ export default function SignInPage() {
           </p>
         </div>
 
-        <Card className="w-full max-w-md justify-self-center border-charcoal/15 md:justify-self-end">
+        <Card className="relative z-10 w-full max-w-md justify-self-center border border-charcoal/15 bg-ivory md:justify-self-end">
           <CardHeader className="space-y-2">
             <TechnicalLabel>ACCESO LOCAL</TechnicalLabel>
             <h2 className="font-display text-2xl font-semibold tracking-[-0.02em]">

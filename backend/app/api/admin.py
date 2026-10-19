@@ -289,10 +289,10 @@ async def cancel_reservation(
     admin: ReservationStaffUser,
     session: SessionDep,
     background: BackgroundTasks,
-    payload: ReservationNoteRequest | None = None,
+    payload: ReservationNoteRequest,
 ) -> AdminReservationResponse:
     reservation = await ReservationService(session).admin_cancel(
-        reservation_id, admin, payload.note if payload else None
+        reservation_id, admin, payload.note
     )
     schedule_notification(background, reservation.id, "reservation_cancelled")
     return AdminReservationResponse.model_validate(reservation)

@@ -76,7 +76,7 @@ export function FacilitiesManager({ organizationId }: { organizationId: string }
       ) : null}
 
       <div className="mt-8 grid gap-6 xl:grid-cols-2 xl:items-stretch">
-        <section className="flex min-w-0 flex-col border border-charcoal/20 bg-ivory">
+        <section className="sirid-table-wrap flex min-w-0 flex-col">
           <div className="border-b border-charcoal/15 px-4 py-3">
             <TechnicalLabel>CATALOGO</TechnicalLabel>
           </div>
@@ -145,8 +145,8 @@ export function FacilitiesManager({ organizationId }: { organizationId: string }
                     <span
                       className={
                         facility.is_active
-                          ? "inline-block border border-olive px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-olive"
-                          : "inline-block border border-charcoal/30 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-charcoal/50"
+                           ? "inline-block rounded-full border border-olive px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-olive"
+                           : "inline-block rounded-full border border-charcoal/30 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-charcoal/50"
                       }
                     >
                       {facility.is_active ? "Activa" : "Inactiva"}
@@ -178,7 +178,7 @@ export function FacilitiesManager({ organizationId }: { organizationId: string }
 
         <div className="min-h-full">
           {creating && canManageCatalog ? (
-            <div className="h-full border border-charcoal bg-sand/30">
+            <div className="sirid-panel h-full overflow-hidden bg-sand/30">
               <FacilityForm
                 organizations={[]}
                 fixedOrganizationId={organizationId}
@@ -186,7 +186,7 @@ export function FacilitiesManager({ organizationId }: { organizationId: string }
               />
             </div>
           ) : editing ? (
-            <div className="h-full border border-charcoal/20 bg-ivory">
+            <div className="sirid-panel h-full overflow-hidden">
               <div
                 role="tablist"
                 aria-label="Secciones de la instalación"
@@ -200,7 +200,7 @@ export function FacilitiesManager({ organizationId }: { organizationId: string }
                     aria-selected={panel === value}
                     onClick={() => setPanel(value)}
                     className={cn(
-                      "-mb-px border-b-2 px-3 py-2.5 text-sm transition-colors duration-fast",
+                       "-mb-px min-h-11 border-b-2 px-3 py-2.5 text-sm transition-colors duration-fast",
                       panel === value
                         ? "border-charcoal font-semibold text-charcoal"
                         : "border-transparent text-charcoal/60 hover:text-charcoal",
@@ -230,7 +230,7 @@ export function FacilitiesManager({ organizationId }: { organizationId: string }
               </div>
             </div>
           ) : (
-            <aside className="flex h-full min-h-[12rem] flex-col justify-center border border-dashed border-charcoal/25 bg-ivory/50 p-6">
+            <aside className="sirid-panel flex h-full min-h-[12rem] flex-col justify-center border-dashed p-6">
               <TechnicalLabel>EDICION</TechnicalLabel>
               <p className="mt-3 text-sm leading-6 text-charcoal/60">
                 Selecciona una fila o el icono de{" "}

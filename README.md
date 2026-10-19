@@ -24,7 +24,8 @@ levanta la API. Con eso quedan disponibles:
 | `http://localhost:3000/instalaciones/[slug]?organization=<slug>` | Detalle, disponibilidad y reserva |
 | `http://localhost:3000/mapa?organization=<slug>` | Plano 3D de la organización seleccionada |
 | `http://localhost:3000/mis-reservas` | Panel del cliente |
-| `http://localhost:3000/admin` | Panel administrativo |
+| `http://localhost:3000/admin` | Panel del administrador del sistema |
+| `http://localhost:3000/encargado` | Panel operativo del encargado (reservas, clientes, instalaciones y reportes) |
 | `http://localhost:8000/docs` | OpenAPI ejecutable |
 | `http://localhost:8000/v1/health` | Salud de la API y de la base |
 
@@ -52,7 +53,7 @@ Implementado y verificado contra PostgreSQL real:
   no revierte la reserva: queda en `notification_logs` y el admin puede reintentar.
 - **Frontend**: Next.js 15 App Router, Atomic Design, TanStack Query, plano 3D con
   React Three Fiber y lista equivalente accesible.
-- **Pruebas**: 93 pruebas (dominio, API, permisos, disponibilidad y concurrencia).
+- **Pruebas**: dominio, API, permisos, disponibilidad y concurrencia.
 
 ## Pruebas
 

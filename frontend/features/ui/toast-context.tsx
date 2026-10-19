@@ -43,7 +43,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           <div
             key={toast.id}
             className={cn(
-              "pointer-events-auto animate-dvl-reveal border px-4 py-3 text-sm shadow-sm",
+              "pointer-events-auto animate-dvl-reveal rounded-2xl border px-4 py-3 text-sm shadow-sm",
               TONE_STYLES[toast.tone],
             )}
           >

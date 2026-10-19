@@ -68,7 +68,7 @@ export function FacilityForm({
   }
 
   return (
-    <form onSubmit={submit} className="border border-charcoal bg-sand/30 p-5">
+    <form onSubmit={submit} className="rounded-2xl bg-sand/20 p-5">
       <TechnicalLabel>{isEdit ? "EDITAR INSTALACION" : "NUEVA INSTALACION"}</TechnicalLabel>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">

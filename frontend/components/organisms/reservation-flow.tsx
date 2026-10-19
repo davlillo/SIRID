@@ -64,7 +64,7 @@ export function ReservationFlow({
         <Stepper current={step} />
 
         <div className="mt-6 space-y-6">
-          <div>
+          <div className="sirid-panel sirid-booking-step p-5 sm:p-6">
             <TechnicalLabel>PASO 1 · ELEGI LA FECHA</TechnicalLabel>
             <div className="mt-2">
               <DateStepper
@@ -77,7 +77,7 @@ export function ReservationFlow({
             </div>
           </div>
 
-          <div>
+          <div className="sirid-panel sirid-booking-step p-5 sm:p-6">
             <TechnicalLabel>PASO 2 · ELEGI EL BLOQUE</TechnicalLabel>
             <div className="mt-2 space-y-4">
               <RangeChecker
@@ -99,7 +99,7 @@ export function ReservationFlow({
             </div>
           </div>
 
-          <div>
+          <div className="sirid-panel sirid-booking-step p-5 sm:p-6">
             <TechnicalLabel>PASO 3 · DATOS DE LA SOLICITUD</TechnicalLabel>
             <div className="mt-2">
               <Field
@@ -120,7 +120,7 @@ export function ReservationFlow({
         </div>
       </div>
 
-      <aside className="sticky top-24 border border-charcoal bg-sand/40 p-5">
+      <aside className="sirid-panel sticky top-24 border border-charcoal/15 bg-sand/30 p-6">
         <TechnicalLabel>PASO 4 · RESUMEN</TechnicalLabel>
         <h2 className="mt-2 font-display text-2xl font-semibold tracking-[-0.02em]">
           {facility.name}
@@ -162,7 +162,7 @@ export function ReservationFlow({
               <GoogleAuthButton />
             </div>
           ) : user.role !== "CLIENT" ? (
-            <p className="border border-dashed border-charcoal/25 p-3 text-sm text-charcoal/65">
+            <p className="rounded-xl border border-dashed border-charcoal/25 p-3 text-sm text-charcoal/65">
               Solo las cuentas de cliente pueden solicitar reservas.
             </p>
           ) : (
@@ -212,7 +212,7 @@ function Stepper({ current }: { current: number }) {
             key={label}
             aria-current={active ? "step" : undefined}
             className={cn(
-              "flex items-center gap-2 border px-3 py-2 font-mono text-[10px] uppercase tracking-[0.14em]",
+              "flex items-center gap-2 rounded-full border px-3 py-2 font-mono text-[10px] uppercase tracking-[0.14em]",
               done && "border-olive bg-olive text-ivory",
               active && "border-terracotta bg-terracotta text-ivory",
               !done && !active && "border-charcoal/25 text-charcoal/50",

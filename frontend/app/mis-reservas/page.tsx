@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { Button, ButtonLink } from "@/components/atoms/button";
+import { Field, Textarea } from "@/components/atoms/field";
 import { EmptyState, ErrorState, LoadingBlock } from "@/components/atoms/states";
 import { StatusBadge } from "@/components/atoms/status-badge";
 import { TechnicalLabel } from "@/components/atoms/technical-label";
@@ -24,7 +25,7 @@ export default function MyReservationsPage() {
   if (isLoading) {
     return (
       <PublicLayout>
-        <div className="py-20">
+        <div className="sirid-page-banner my-6 px-7 py-16 sm:px-12 md:py-20">
           <LoadingBlock label="VERIFICANDO SESION" />
         </div>
       </PublicLayout>
@@ -34,7 +35,7 @@ export default function MyReservationsPage() {
   if (!user) {
     return (
       <PublicLayout>
-        <section className="py-20">
+        <section className="sirid-page-banner my-6 px-7 py-16 sm:px-12 md:py-20">
           <TechnicalLabel>ACCOUNT_01</TechnicalLabel>
           <h1 className="dvl-display mt-4">Mis reservas</h1>
           <p className="mt-5 max-w-lg text-lg leading-8 text-charcoal/70">
@@ -48,19 +49,37 @@ export default function MyReservationsPage() {
     );
   }
 
-  const items = reservations.data?.items ?? [];
+  if (user.role !== "CLIENT") {
+    return (
+      <PublicLayout>
+        <section className="py-20">
+          <h1 className="dvl-display">Mis reservas</h1>
+          <p className="mt-5 text-charcoal/70">Esta sección es para cuentas de cliente.</p>
+          <div className="mt-8">
+            <ButtonLink href={user.role === "ADMIN" ? "/admin" : "/encargado"}>
+              Ir a mi panel
+            </ButtonLink>
+          </div>
+        </section>
+      </PublicLayout>
+    );
+  }
+
+  const items = reservations.data?.pages.flatMap((page) => page.items) ?? [];
   const now = Date.now();
-  const upcoming = items.filter(
-    (item) =>
-      new Date(item.ends_at).getTime() >= now &&
-      (item.status === "PENDING" || item.status === "CONFIRMED"),
-  );
+  const upcoming = items
+    .filter(
+      (item) =>
+        new Date(item.ends_at).getTime() >= now &&
+        (item.status === "PENDING" || item.status === "CONFIRMED"),
+    )
+    .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
   const history = items.filter((item) => !upcoming.includes(item));
   const visible = tab === "proximas" ? upcoming : history;
 
   return (
     <PublicLayout>
-      <section className="py-14">
+      <section className="sirid-page-banner my-6 px-7 py-14 sm:px-12">
         <TechnicalLabel>ACCOUNT_01</TechnicalLabel>
         <h1 className="dvl-display mt-4">Mis reservas</h1>
         <p className="mt-5 max-w-xl text-lg leading-8 text-charcoal/70">
@@ -70,24 +89,28 @@ export default function MyReservationsPage() {
 
       {upcoming[0] ? <NextReservation reservation={upcoming[0]} /> : null}
 
-      <div className="mt-10 flex gap-2 border-b border-charcoal/15">
+      <div className="mt-10 flex gap-2 border-b border-charcoal/15" role="tablist" aria-label="Tus reservas">
         {(["proximas", "historial"] as Tab[]).map((key) => (
           <button
             key={key}
+            id={`tab-${key}`}
+            type="button"
+            role="tab"
             onClick={() => setTab(key)}
-            aria-current={tab === key ? "page" : undefined}
+            aria-selected={tab === key}
+            aria-controls="reservation-list"
             className={
               tab === key
                 ? "-mb-px border-b-2 border-terracotta px-4 py-3 text-sm font-semibold text-terracotta"
                 : "-mb-px border-b-2 border-transparent px-4 py-3 text-sm text-charcoal/60 hover:text-charcoal"
             }
           >
-            {key === "proximas" ? `Proximas (${upcoming.length})` : `Historial (${history.length})`}
+            {key === "proximas" ? "Próximas" : "Historial"}
           </button>
         ))}
       </div>
 
-      <div className="mt-8 pb-10">
+      <div id="reservation-list" role="tabpanel" aria-labelledby={`tab-${tab}`} className="mt-8 pb-10">
         {reservations.isPending ? <LoadingBlock label="CARGANDO RESERVAS" /> : null}
 
         {reservations.isError ? (
@@ -101,7 +124,7 @@ export default function MyReservationsPage() {
           />
         ) : null}
 
-        {reservations.isSuccess && visible.length === 0 ? (
+        {reservations.isSuccess && visible.length === 0 && !reservations.hasNextPage ? (
           <EmptyState
             title={tab === "proximas" ? "Sin reservas activas" : "Historial vacio"}
             description={
@@ -118,6 +141,20 @@ export default function MyReservationsPage() {
             <ReservationRow key={reservation.id} reservation={reservation} />
           ))}
         </ul>
+        {reservations.hasNextPage ? (
+          <div className="mt-6 text-center">
+            {visible.length === 0 ? (
+              <p className="mb-3 text-sm text-charcoal/65">Puede haber más reservas en las páginas siguientes.</p>
+            ) : null}
+            <Button
+              variant="secondary"
+              disabled={reservations.isFetchingNextPage}
+              onClick={() => void reservations.fetchNextPage()}
+            >
+              {reservations.isFetchingNextPage ? "Cargando…" : "Cargar más reservas"}
+            </Button>
+          </div>
+        ) : null}
       </div>
     </PublicLayout>
   );
@@ -125,7 +162,7 @@ export default function MyReservationsPage() {
 
 function NextReservation({ reservation }: { reservation: Reservation }) {
   return (
-    <section className="technical-grid border border-charcoal bg-charcoal p-6 text-ivory">
+    <section className="technical-grid overflow-hidden rounded-[2rem] border border-charcoal/15 bg-charcoal p-7 text-ivory">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-sand">
@@ -147,12 +184,13 @@ function NextReservation({ reservation }: { reservation: Reservation }) {
 function ReservationRow({ reservation }: { reservation: Reservation }) {
   const cancel = useCancelReservation();
   const [confirming, setConfirming] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
 
   // Solo se puede cancelar lo que sigue vivo (RN-06 y transiciones de dominio).
   const cancellable = reservation.status === "PENDING" || reservation.status === "CONFIRMED";
 
   return (
-    <li className="border border-charcoal/20 bg-ivory p-5">
+    <li className="sirid-panel p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
@@ -175,7 +213,7 @@ function ReservationRow({ reservation }: { reservation: Reservation }) {
           {reservation.admin_note ? (
             <p className="mt-2 border-l-2 border-terracotta pl-3 text-sm text-charcoal/70">
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-olive">
-                Nota del encargado:
+                Motivo de cancelación:
               </span>{" "}
               {reservation.admin_note}
             </p>
@@ -189,18 +227,29 @@ function ReservationRow({ reservation }: { reservation: Reservation }) {
 
           {cancellable ? (
             confirming ? (
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="danger"
-                  size="sm"
-                  disabled={cancel.isPending}
-                  onClick={() => cancel.mutate(reservation.id)}
-                >
-                  {cancel.isPending ? "Cancelando…" : "Si, cancelar"}
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => setConfirming(false)}>
-                  Volver
-                </Button>
+              <div className="w-full max-w-sm space-y-3">
+                <Field label="Motivo de cancelación" htmlFor={`reason-${reservation.id}`}>
+                  <Textarea
+                    id={`reason-${reservation.id}`}
+                    required
+                    maxLength={1000}
+                    value={cancelReason}
+                    onChange={(event) => setCancelReason(event.target.value)}
+                  />
+                </Field>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    disabled={cancel.isPending || cancelReason.trim().length < 3}
+                    onClick={() => cancel.mutate({ id: reservation.id, note: cancelReason.trim() })}
+                  >
+                    {cancel.isPending ? "Cancelando…" : "Sí, cancelar"}
+                  </Button>
+                  <Button variant="ghost" size="sm" disabled={cancel.isPending} onClick={() => setConfirming(false)}>
+                    Volver
+                  </Button>
+                </div>
               </div>
             ) : (
               <Button variant="secondary" size="sm" onClick={() => setConfirming(true)}>

@@ -144,7 +144,7 @@ export function ClientsManager({ organizationId }: { organizationId: string }) {
       ) : null}
 
       <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1fr)_min(100%,22rem)] xl:items-stretch">
-        <section className="flex min-w-0 flex-col border border-charcoal/20 bg-ivory">
+        <section className="sirid-table-wrap flex min-w-0 flex-col">
           <div className="flex flex-col gap-3 border-b border-charcoal/15 px-4 py-3 sm:flex-row sm:items-end sm:justify-between">
             <TechnicalLabel>CLIENTES REGISTRADOS</TechnicalLabel>
             <div className="w-full sm:max-w-xs">
@@ -177,7 +177,7 @@ export function ClientsManager({ organizationId }: { organizationId: string }) {
 
           {visibleClients.length > 0 ? (
             <div className="min-h-0 flex-1">
-              <table className="w-full table-fixed border-collapse text-sm">
+               <table className="w-full table-fixed border-collapse text-sm">
                 <caption className="sr-only">Clientes registrados en la organización</caption>
                 <thead>
                   <tr className="bg-charcoal text-ivory">
@@ -267,8 +267,8 @@ export function ClientsManager({ organizationId }: { organizationId: string }) {
                         <span
                           className={
                             client.is_active
-                              ? "inline-block border border-olive px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-olive"
-                              : "inline-block border border-charcoal/30 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-charcoal/55"
+                               ? "inline-block rounded-full border border-olive px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-olive"
+                               : "inline-block rounded-full border border-charcoal/30 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-charcoal/55"
                           }
                         >
                           {client.is_active ? "Activo" : "De baja"}
@@ -316,7 +316,7 @@ export function ClientsManager({ organizationId }: { organizationId: string }) {
             <form
               onSubmit={submit}
               noValidate
-              className="h-full border border-charcoal bg-sand/30 p-5"
+               className="sirid-panel h-full bg-sand/25 p-5"
             >
           <TechnicalLabel>{editing ? "EDITAR CLIENTE" : "NUEVO CLIENTE"}</TechnicalLabel>
           <div className="mt-4 grid gap-4">
@@ -452,7 +452,7 @@ export function ClientsManager({ organizationId }: { organizationId: string }) {
           </div>
             </form>
           ) : (
-            <aside className="flex h-full min-h-[12rem] flex-col justify-center border border-dashed border-charcoal/25 bg-ivory/50 p-6">
+             <aside className="sirid-panel flex h-full min-h-[12rem] flex-col justify-center border-dashed p-6">
               <TechnicalLabel>REGISTRO</TechnicalLabel>
               <p className="mt-3 text-sm leading-6 text-charcoal/60">
                 Pulsa <strong className="font-semibold text-charcoal">Nuevo cliente</strong> para

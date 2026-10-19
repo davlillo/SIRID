@@ -79,7 +79,7 @@ export default async function FacilityDetailPage({ params, searchParams }: Param
 
       <section className="grid gap-10 py-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
         <div>
-          <div className="overflow-hidden border border-charcoal">
+          <div className="overflow-hidden rounded-[2rem] border border-charcoal/15 bg-sand/40 shadow-xl shadow-charcoal/10">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={facilityImage(facility.facility_kind, facility.images)}
@@ -92,7 +92,7 @@ export default async function FacilityDetailPage({ params, searchParams }: Param
             {ZONE_LABEL[facility.zone]} · {KIND_LABEL[facility.facility_kind]} ·{" "}
             {SPORT_LABEL[facility.sport_type]}
           </TechnicalLabel>
-          <h1 className="mt-3 font-display text-5xl font-semibold tracking-[-0.04em]">
+          <h1 className="mt-3 font-display text-5xl font-bold tracking-[-0.06em]">
             {facility.name}
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-8 text-charcoal/70">
@@ -100,7 +100,7 @@ export default async function FacilityDetailPage({ params, searchParams }: Param
           </p>
         </div>
 
-        <aside className="border border-charcoal/20 bg-sand/30 p-5">
+        <aside className="sirid-panel bg-sand/25 p-6 lg:sticky lg:top-24">
           <TechnicalLabel>FICHA TECNICA</TechnicalLabel>
           <dl className="mt-4 divide-y divide-charcoal/10 text-sm">
             <Spec label="Capacidad" value={`${facility.capacity} personas`} />
@@ -154,7 +154,7 @@ export default async function FacilityDetailPage({ params, searchParams }: Param
             <ReservationFlow facility={facility} organizationSlug={organization} />
           </div>
         ) : (
-          <p className="mt-4 max-w-xl border border-dashed border-charcoal/30 px-5 py-6 text-sm leading-6 text-charcoal/70">
+          <p className="sirid-panel mt-4 max-w-xl border-dashed px-5 py-6 text-sm leading-6 text-charcoal/70">
             Este espacio aparece en el plano para orientarte, pero no forma parte del catalogo
             reservable. El acceso va incluido con cualquier reserva deportiva.
           </p>

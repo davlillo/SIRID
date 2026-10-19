@@ -36,7 +36,7 @@ export function Field({
 }
 
 const CONTROL =
-  "min-h-11 w-full border border-charcoal/25 bg-ivory px-3 text-sm text-charcoal outline-none transition-colors duration-fast focus:border-terracotta disabled:opacity-50";
+  "min-h-11 w-full rounded-xl border border-charcoal/25 bg-ivory px-3 text-sm text-charcoal outline-none transition-colors duration-fast focus:border-terracotta focus:ring-2 focus:ring-terracotta/15 disabled:opacity-50";
 
 export function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input className={cn(CONTROL, className)} {...props} />;

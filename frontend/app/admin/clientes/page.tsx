@@ -1,21 +1,5 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { AdminLayout } from "@/components/templates/admin-layout";
-import { ClientsManager } from "@/features/admin/clients-manager";
-import { useAuth } from "@/features/auth/auth-context";
-
-/**
- * Clientes de la organizacion del encargado. El administrador del sistema los
- * gestiona desde `/admin/organizaciones/[id]`.
- */
-export default function AdminClientsPage() {
-  const { user } = useAuth();
-
-  return (
-    <AdminLayout access="catalog">
-      {user?.organization_id ? (
-        <ClientsManager organizationId={user.organization_id} />
-      ) : null}
-    </AdminLayout>
-  );
+export default function LegacyClientsPage() {
+  redirect("/encargado/clientes");
 }

@@ -36,7 +36,7 @@ export function Modal({
       onClick={(event) => {
         if (event.target === ref.current) onClose();
       }}
-      className="m-auto w-[min(36rem,calc(100vw-2rem))] border border-charcoal bg-ivory p-0 text-charcoal backdrop:bg-charcoal/50"
+      className="m-auto w-[min(36rem,calc(100vw-2rem))] rounded-2xl border border-charcoal/20 bg-ivory p-0 text-charcoal shadow-2xl backdrop:bg-charcoal/50"
     >
       {open ? (
         <div className="p-6">

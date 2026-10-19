@@ -56,7 +56,7 @@ export default function AdminUsersPage() {
 
       <form
         onSubmit={submit}
-        className="mt-8 grid gap-4 border border-charcoal bg-sand/30 p-5 md:grid-cols-2"
+        className="sirid-panel mt-8 grid gap-4 bg-sand/25 p-6 md:grid-cols-2"
       >
         <Field label="Correo de Google" htmlFor="managed-user-email">
           <Input
@@ -141,7 +141,7 @@ export default function AdminUsersPage() {
         ) : null}
 
         {users.data && users.data.length > 0 ? (
-          <div className="mt-4 overflow-x-auto border border-charcoal/20">
+          <div className="sirid-table-wrap mt-4">
             <table className="w-full min-w-[42rem] border-collapse text-sm">
               <thead>
                 <tr className="bg-charcoal text-ivory">

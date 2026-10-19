@@ -9,12 +9,12 @@ import { cn } from "@/lib/cn";
  * Sin gradientes; altura minima 44px por accesibilidad tactil.
  */
 const button = cva(
-  "inline-flex min-h-11 items-center justify-center gap-2 border text-sm font-semibold transition-colors duration-fast ease-technical disabled:cursor-not-allowed disabled:opacity-45",
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-full border text-sm font-semibold transition-colors duration-fast ease-technical disabled:cursor-not-allowed disabled:opacity-45",
   {
     variants: {
       variant: {
         primary: "border-terracotta bg-terracotta text-ivory hover:bg-coffee hover:border-coffee",
-        secondary: "border-charcoal bg-transparent text-charcoal hover:bg-sand",
+        secondary: "border-charcoal/20 bg-transparent text-charcoal hover:bg-sand",
         ghost: "border-transparent bg-transparent text-charcoal hover:bg-sand",
         danger: "border-state-error bg-transparent text-state-error hover:bg-state-error hover:text-ivory",
         inverse: "border-ivory bg-transparent text-ivory hover:bg-ivory hover:text-charcoal",

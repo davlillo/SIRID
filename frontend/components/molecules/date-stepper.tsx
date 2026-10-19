@@ -19,7 +19,7 @@ export function DateStepper({
   const canGoBack = value > today;
 
   return (
-    <div className="flex flex-wrap items-center gap-3 border border-charcoal/20 bg-sand/30 p-3">
+    <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-charcoal/20 bg-sand/30 p-3">
       <Button
         variant="secondary"
         size="sm"
@@ -57,7 +57,7 @@ export function DateStepper({
         min={today}
         max={maxDate}
         onChange={(event) => event.target.value && onChange(event.target.value)}
-        className="min-h-11 border border-charcoal/25 bg-ivory px-3 text-sm outline-none focus:border-terracotta"
+        className="min-h-11 rounded-xl border border-charcoal/25 bg-ivory px-3 text-sm outline-none focus:border-terracotta"
       />
     </div>
   );

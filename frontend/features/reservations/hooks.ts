@@ -1,14 +1,20 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { ApiError, reservationsApi, type CreateReservationInput } from "@/lib/api";
+import { useAuth } from "../auth/auth-context";
 import { useToast } from "../ui/toast-context";
 
 export function useMyReservations() {
-  return useQuery({
-    queryKey: ["reservations", "me"],
-    queryFn: () => reservationsApi.mine(),
+  const { user } = useAuth();
+  return useInfiniteQuery({
+    queryKey: ["reservations", "me", user?.id],
+    queryFn: ({ pageParam }) => reservationsApi.mine(pageParam, 20),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.page * lastPage.limit < lastPage.total ? lastPage.page + 1 : undefined,
+    enabled: user?.role === "CLIENT",
   });
 }
 
@@ -40,7 +46,7 @@ export function useCancelReservation() {
   const { notify } = useToast();
 
   return useMutation({
-    mutationFn: (id: string) => reservationsApi.cancel(id),
+    mutationFn: ({ id, note }: { id: string; note: string }) => reservationsApi.cancel(id, note),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reservations"] });
       queryClient.invalidateQueries({ queryKey: ["availability"] });

@@ -17,8 +17,8 @@ export default async function FacilitiesPage({ searchParams }: SearchParams) {
   if (!organization) redirect("/organizaciones");
   return (
     <PublicLayout organizationSlug={organization}>
-      <section className="py-14">
-        <TechnicalLabel>CATALOG_01</TechnicalLabel>
+      <section className="sirid-page-banner my-6 px-7 py-14 sm:px-12 md:py-20">
+        <TechnicalLabel>ESPACIOS PARA VOS</TechnicalLabel>
         <h1 className="dvl-display mt-4">Instalaciones</h1>
         <p className="mt-5 max-w-xl text-lg leading-8 text-charcoal/70">
           Filtra por zona, deporte o capacidad. Cada ficha muestra horario, tarifa y
@@ -26,7 +26,7 @@ export default async function FacilitiesPage({ searchParams }: SearchParams) {
         </p>
       </section>
 
-        <FacilityCatalog organizationSlug={organization} />
+      <FacilityCatalog organizationSlug={organization} />
     </PublicLayout>
   );
 }

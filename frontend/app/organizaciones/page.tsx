@@ -23,8 +23,8 @@ export default async function OrganizationsPage() {
 
   return (
     <PublicLayout>
-      <section className="py-14">
-        <TechnicalLabel>ORGANIZATIONS / DIRECTORY</TechnicalLabel>
+      <section className="sirid-page-banner my-6 px-7 py-14 sm:px-12 md:py-20">
+        <TechnicalLabel>ENCUENTRA TU ORGANIZACIÓN</TechnicalLabel>
         <h1 className="dvl-display mt-4">Elige tu organización.</h1>
         <p className="mt-5 max-w-2xl text-lg leading-8 text-charcoal/70">
           Cada organización administra sus propias instalaciones y reservas. El catálogo público
@@ -38,11 +38,11 @@ export default async function OrganizationsPage() {
             <li key={organization.id}>
               <Link
                 href={`/instalaciones?organization=${encodeURIComponent(organization.slug)}`}
-                className="group block border border-charcoal/20 bg-ivory p-6 transition-colors hover:border-charcoal"
+                className="sirid-panel sirid-organization-card group flex h-full min-h-52 flex-col p-7 transition-all duration-base hover:-translate-y-1 hover:border-terracotta/60 hover:shadow-lg focus-visible:outline-terracotta"
               >
                 <TechnicalLabel>{organization.slug.toUpperCase()}</TechnicalLabel>
                 <h2 className="mt-3 font-display text-2xl font-semibold">{organization.name}</h2>
-                <span className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-terracotta">
+                <span className="mt-auto inline-flex items-center gap-2 pt-6 text-sm font-semibold text-terracotta">
                   Ver instalaciones <span aria-hidden="true">→</span>
                 </span>
               </Link>
@@ -50,7 +50,7 @@ export default async function OrganizationsPage() {
           ))}
         </ul>
       ) : (
-        <p className="border border-dashed border-charcoal/30 px-6 py-10 text-center text-sm text-charcoal/60">
+        <p className="sirid-panel border-dashed px-6 py-10 text-center text-sm text-charcoal/70">
           No hay organizaciones activas disponibles por el momento.
         </p>
       )}
