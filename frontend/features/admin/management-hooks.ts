@@ -58,9 +58,14 @@ export function useCreateSystemUser() {
   const { notify } = useToast();
   return useMutation({
     mutationFn: adminApi.createUser,
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
-      notify("Usuario creado. Su acceso se vinculará al iniciar sesión con Google.", "success");
+      notify(
+        variables.password
+          ? "Usuario creado. Ya puede iniciar sesión con su correo y contraseña."
+          : "Usuario creado. Su acceso se vinculará al iniciar sesión con Google.",
+        "success",
+      );
     },
     onError: (error) =>
       notify(error instanceof ApiError ? error.detail : "No se pudo crear el usuario.", "error"),

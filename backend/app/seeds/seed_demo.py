@@ -1,7 +1,7 @@
 """Carga el catalogo de desarrollo.
 
-Idempotente: se puede ejecutar tantas veces como haga falta. Un espacio que ya
-existe se actualiza en lugar de duplicarse.
+Idempotente: agrega espacios que faltan y conserva todos los datos de los
+existentes, incluidos los cambios administrativos y las bajas operativas.
 
     docker compose exec backend python -m app.seeds.seed_demo
 
@@ -40,7 +40,7 @@ async def seed() -> None:
             raise RuntimeError(
                 "The bootstrap organization must exist before seeding facilities."
             )
-        created, updated = 0, 0
+        created, preserved = 0, 0
 
         for entry in FACILITIES:
             facility = await session.scalar(
@@ -49,14 +49,16 @@ async def seed() -> None:
                     FacilityModel.slug == entry["slug"],
                 )
             )
-            is_new = facility is None
-            if is_new:
-                facility = FacilityModel(
-                    organization_id=organization.id,
-                    slug=entry["slug"],
-                )
-                session.add(facility)
-            assert facility is not None
+            if facility is not None:
+                preserved += 1
+                logger.info("preserved %s", entry["slug"])
+                continue
+
+            facility = FacilityModel(
+                organization_id=organization.id,
+                slug=entry["slug"],
+            )
+            session.add(facility)
 
             map_x, map_y, map_z, map_width, map_depth = entry["map"]
             facility.name = entry["name"]
@@ -85,13 +87,11 @@ async def seed() -> None:
             await _replace_images(session, facility.id, entry["images"])
             await _ensure_rate(session, facility.id, entry["rate"])
 
-            created, updated = (
-                (created + 1, updated) if is_new else (created, updated + 1)
-            )
-            logger.info("%s %s", "created" if is_new else "updated", entry["slug"])
+            created += 1
+            logger.info("created %s", entry["slug"])
 
         await session.commit()
-        logger.info("Seed complete: %s created, %s updated.", created, updated)
+        logger.info("Seed complete: %s created, %s preserved.", created, preserved)
 
 
 async def _replace_schedules(

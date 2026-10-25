@@ -62,14 +62,15 @@ export function AdminLayout({
         <h1 className="dvl-display mt-4">Acceso restringido</h1>
         <p className="mt-5 max-w-lg text-lg leading-8 text-charcoal/70">
           {user
-            ? "Tu cuenta no tiene permisos para esta seccion. Pedile a un administrador que te asigne el rol correspondiente."
-            : "Inicia sesion con una cuenta interna para gestionar el complejo."}
+            ? "Tu cuenta no tiene permisos para esta sección. Solicita el acceso correspondiente a un administrador."
+            : "Inicia sesión con una cuenta interna para gestionar la organización."}
         </p>
-        {!user ? (
-          <div className="mt-8">
-            <ButtonLink href="/ingresar">Iniciar sesion</ButtonLink>
-          </div>
-        ) : null}
+        <div className="mt-8 flex flex-wrap gap-3">
+          <ButtonLink href={user ? (isAdmin ? "/admin" : isReservationManager ? "/encargado" : "/mis-reservas") : "/ingresar"}>
+            {user ? "Volver a mi espacio" : "Iniciar sesión"}
+          </ButtonLink>
+          <ButtonLink href="/" variant="secondary">Ir al inicio</ButtonLink>
+        </div>
       </div>
     );
   }
@@ -78,13 +79,13 @@ export function AdminLayout({
     <div className="sirid-admin-shell min-h-dvh">
       <div className="dvl-shell">
         <header className="sticky top-3 z-40 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-[2rem] border border-charcoal/15 bg-ivory/95 px-5 py-3 backdrop-blur-xl sm:rounded-full">
-          <Link href={isAdmin ? "/admin" : "/encargado"} className="flex items-center gap-3">
+          <Link href={isAdmin ? "/admin" : "/encargado"} aria-label={isAdmin ? "SIRID, panel de administración" : "SIRID, panel del encargado"} className="flex items-center gap-3">
             <BrandMark />
             <span className="rounded-full border border-charcoal/20 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.16em]">
               {isAdmin ? "Admin" : "Encargado"}
             </span>
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-1 sm:gap-3">
             <ThemeToggle />
             <SessionMenu />
           </div>
@@ -93,7 +94,7 @@ export function AdminLayout({
         <div className="grid gap-8 py-8 lg:grid-cols-[13rem_1fr] lg:items-start">
           <nav aria-label="Secciones del panel" className="min-w-0 lg:sticky lg:top-24">
             <TechnicalLabel>PANEL</TechnicalLabel>
-            <ul className="mt-3 flex gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible lg:pb-0">
+            <ul className="mt-3 flex gap-2 overflow-x-auto p-1 pb-2 lg:flex-col lg:overflow-visible lg:pb-0">
               {SECTIONS.filter((section) =>
                 section.access === "admin" ? isAdmin : isReservationManager,
               ).map((section) => {

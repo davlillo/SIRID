@@ -1,15 +1,16 @@
 {% extends "_base.html.j2" %}
 
-{% block title %}Tu reserva esta confirmada.{% endblock %}
+{% block preheader %}Todo listo, {{ customer_name }}: {{ facility_name }} le espera el {{ date_label }} a las {{ time_label }}.{% endblock %}
+{% block title %}Todo listo para su próxima visita.{% endblock %}
 
 {% block intro %}
-  un administrador aprobo tu solicitud. El espacio queda reservado a tu nombre para el periodo
-  indicado abajo.
+  El encargado de <strong>{{ organization_name }}</strong> confirmó su solicitud.
+  <strong>{{ facility_name }}</strong> queda reservado a su nombre para la fecha y el horario indicados.
 {% endblock %}
 
 {% block extra %}
-  <p style="margin:20px 0 0;font-size:13px;line-height:1.6;color:rgba(25,24,23,0.65);">
-    Presentate unos minutos antes en {{ facility_location }}. Si no puedes asistir, cancela desde
-    tu panel para liberar la franja.
+  <p style="margin:22px 0 0;padding:16px 18px;background:#e6eadf;border-left:3px solid #65705a;font-size:13px;line-height:1.8;color:#394331;">
+    <strong>Prepare su visita.</strong> Preséntese unos minutos antes en {{ facility_location }}.
+    Si no puede asistir, cancele desde su cuenta para liberar el espacio.
   </p>
 {% endblock %}

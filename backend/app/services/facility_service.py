@@ -1,8 +1,10 @@
 """Catalogo de instalaciones, CRUD administrativo y metadatos del plano."""
 
+import logging
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.concurrency import run_in_threadpool
 
 from app.domain.enums import Zone
 from app.domain.errors import (
@@ -11,6 +13,7 @@ from app.domain.errors import (
     FacilitySlugTaken,
     OrganizationNotFound,
 )
+from app.infrastructure.facility_photos import delete_photo, prepare_photo, store_photo
 from app.infrastructure.models import FacilityImageModel, FacilityModel
 from app.repositories.facility_repository import FacilityRepository
 from app.repositories.organization_repository import OrganizationRepository
@@ -32,6 +35,8 @@ WRITABLE_FIELDS = (
     "map_width",
     "map_depth",
 )
+
+logger = logging.getLogger(__name__)
 
 
 class FacilityService:
@@ -120,6 +125,7 @@ class FacilityService:
             FacilityModel(
                 organization_id=payload["organization_id"],
                 slug=slug,
+                images=[],
                 facility_metadata=payload.get("metadata") or {},
                 **{
                     field: payload.get(field)
@@ -128,8 +134,7 @@ class FacilityService:
                 },
             )
         )
-        await self.session.commit()
-        await self.session.refresh(facility)
+        await self._save_with_photo(facility, payload)
         return facility
 
     async def update(self, facility_id: UUID, payload: dict) -> FacilityModel:
@@ -151,9 +156,36 @@ class FacilityService:
         if payload.get("metadata") is not None:
             facility.facility_metadata = payload["metadata"]
 
-        await self.session.commit()
-        await self.session.refresh(facility)
+        await self._save_with_photo(facility, payload)
         return facility
+
+    async def _save_with_photo(self, facility: FacilityModel, payload: dict) -> None:
+        """Commit data and photo together; compensate file writes on DB failure."""
+        new_url = None
+        old_urls = []
+        if "photo" in payload:
+            if payload["photo"] is not None:
+                content = await run_in_threadpool(prepare_photo, payload["photo"])
+                new_url = await run_in_threadpool(store_photo, content)
+            old_urls = [image.url for image in facility.images]
+            facility.images = (
+                [FacilityImageModel(url=new_url, alt_text=f"Foto de {facility.name}", sort_order=0)]
+                if new_url else []
+            )
+        try:
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            if new_url:
+                await run_in_threadpool(delete_photo, new_url)
+            raise
+        for url in old_urls:
+            try:
+                await run_in_threadpool(delete_photo, url)
+            except OSError:
+                # A cleanup failure must not turn an already committed save into an error.
+                logger.warning("Could not remove an old facility photo", exc_info=True)
+        await self.session.refresh(facility)
 
     async def replace_images(
         self, facility_id: UUID, images: list[dict]

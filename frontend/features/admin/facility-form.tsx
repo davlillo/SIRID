@@ -8,6 +8,7 @@ import { TechnicalLabel } from "@/components/atoms/technical-label";
 import { KIND_LABEL, SPORT_LABEL, ZONE_LABEL } from "@/lib/format";
 import type { Facility, FacilityKind, SportType, Zone } from "@/lib/types";
 
+import { FacilityPhotoField } from "./facility-photo-field";
 import { useSaveFacility } from "./hooks";
 
 /** Alta y edicion de una instalacion. `fixedOrganizationId` oculta el selector. */
@@ -24,6 +25,10 @@ export function FacilityForm({
 }) {
   const save = useSaveFacility();
   const isEdit = Boolean(facility);
+  const [photo, setPhoto] = useState<File | null | undefined>(undefined);
+  const [readingPhoto, setReadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState("");
+  const busy = save.isPending || readingPhoto;
 
   const [form, setForm] = useState({
     organization_id: facility?.organization_id ?? fixedOrganizationId ?? "",
@@ -46,6 +51,7 @@ export function FacilityForm({
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
+    if (busy) return;
     const body: Record<string, unknown> = {
       name: form.name,
       description: form.description,
@@ -63,8 +69,31 @@ export function FacilityForm({
       body.slug = form.slug;
     }
 
-    await save.mutateAsync({ id: facility?.id, body });
-    onDone();
+    setPhotoError("");
+    if (photo === null) body.photo = null;
+    if (photo) {
+      setReadingPhoto(true);
+      try {
+        body.photo = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(new Error("Could not read photo"));
+          reader.onabort = () => reject(new Error("Photo reading aborted"));
+          reader.readAsDataURL(photo);
+        });
+      } catch {
+        setPhotoError("No se pudo leer la foto. Selecciona el archivo nuevamente.");
+        return;
+      } finally {
+        setReadingPhoto(false);
+      }
+    }
+    try {
+      await save.mutateAsync({ id: facility?.id, body });
+      onDone();
+    } catch {
+      // The mutation reports the API error; preserve the form for retrying.
+    }
   }
 
   return (
@@ -72,6 +101,8 @@ export function FacilityForm({
       <TechnicalLabel>{isEdit ? "EDITAR INSTALACION" : "NUEVA INSTALACION"}</TechnicalLabel>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <FacilityPhotoField facility={facility} photo={photo} onChange={setPhoto} disabled={busy} />
+        {photoError ? <p role="alert" className="text-sm text-terracotta sm:col-span-2">{photoError}</p> : null}
         {!isEdit && !fixedOrganizationId ? (
           <Field label="Organización" htmlFor="fa-organization" className="sm:col-span-2">
             <Select
@@ -222,10 +253,10 @@ export function FacilityForm({
       </div>
 
       <div className="mt-5 flex gap-2">
-        <Button type="submit" disabled={save.isPending}>
-          {save.isPending ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear instalacion"}
+        <Button type="submit" disabled={busy}>
+          {busy ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear instalacion"}
         </Button>
-        <Button type="button" variant="ghost" onClick={onDone}>
+        <Button type="button" variant="ghost" onClick={onDone} disabled={busy}>
           Cerrar
         </Button>
       </div>

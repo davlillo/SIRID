@@ -57,7 +57,7 @@ export function useCreateClient() {
     mutationFn: adminApi.createClient,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "clients"] });
-      notify("Cliente registrado.", "success");
+      notify("Cliente registrado. El envío del correo se procesa por separado; consulte el historial en el icono de correo.", "success");
     },
     onError: (error) => {
       notify(

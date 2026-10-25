@@ -28,7 +28,7 @@ export function GoogleAuthButton({ onDone }: { onDone?: () => void }) {
 
   if (busy) {
     return (
-      <span className="inline-flex min-h-11 items-center gap-2 text-sm">
+      <span role="status" className="inline-flex min-h-11 items-center gap-2 text-sm">
         <Spinner /> Verificando con Google…
       </span>
     );
@@ -37,7 +37,7 @@ export function GoogleAuthButton({ onDone }: { onDone?: () => void }) {
   return (
     <GoogleLogin
       locale="es"
-        shape="pill"
+      shape="pill"
       text="signin_with"
       onSuccess={async (response) => {
         if (!response.credential) {
@@ -48,6 +48,8 @@ export function GoogleAuthButton({ onDone }: { onDone?: () => void }) {
         try {
           await loginWithGoogle(response.credential);
           onDone?.();
+        } catch {
+          // AuthProvider reports the error; keep the Google callback resolved.
         } finally {
           setBusy(false);
         }
@@ -61,10 +63,19 @@ export function GoogleAuthButton({ onDone }: { onDone?: () => void }) {
 export function SessionMenu() {
   const { user, isLoading, isAdmin, isReservationManager, logout } = useAuth();
   const router = useRouter();
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   async function signOut() {
-    await logout();
-    router.push("/ingresar");
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    try {
+      await logout();
+      router.push("/ingresar");
+    } catch {
+      // Keep the current page and session when logout fails; the provider notifies.
+    } finally {
+      setIsSigningOut(false);
+    }
   }
 
   if (isLoading) return <Spinner />;
@@ -81,28 +92,28 @@ export function SessionMenu() {
   }
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex min-w-0 items-center gap-1 sm:gap-3">
       {isAdmin || isReservationManager ? (
         <Link
           href={isAdmin ? "/admin" : "/encargado"}
-          className="text-sm font-semibold hover:text-terracotta"
+          className="inline-flex min-h-11 items-center rounded-full px-2 text-sm font-semibold hover:text-terracotta"
         >
           Panel
         </Link>
       ) : null}
       {user.role === "CLIENT" ? (
-        <Link href="/mis-reservas" className="text-sm font-semibold hover:text-terracotta">
+        <Link href="/mis-reservas" className="inline-flex min-h-11 items-center rounded-full px-2 text-sm font-semibold hover:text-terracotta">
           Mis reservas
         </Link>
       ) : null}
       <span
         title={user.email}
-        className="hidden font-mono text-[10px] uppercase tracking-[0.14em] text-olive sm:inline"
+        className="hidden max-w-24 truncate font-mono text-[10px] uppercase tracking-[0.14em] text-olive xl:inline"
       >
         {user.name.split(" ")[0]}
       </span>
-      <Button variant="ghost" size="sm" onClick={() => void signOut()}>
-        Salir
+      <Button variant="ghost" size="sm" disabled={isSigningOut} onClick={() => void signOut()}>
+        {isSigningOut ? "Saliendo…" : "Salir"}
       </Button>
     </div>
   );

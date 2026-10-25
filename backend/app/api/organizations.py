@@ -3,9 +3,10 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 
-from app.api.deps import AdminUser, SessionDep, availability_rate_limit
-from app.domain.enums import FacilityKind, SportType, Zone
+from app.api.deps import AdminUser, OptionalUser, SessionDep, availability_rate_limit
+from app.domain.enums import FacilityKind, SportType, UserRole, Zone
 from app.domain.errors import OrganizationNotFound
+from app.infrastructure.models import UserModel
 from app.repositories.organization_repository import OrganizationRepository
 from app.schemas.availability import (
     AvailabilityResponse,
@@ -39,15 +40,23 @@ admin_router = APIRouter(prefix="/admin", tags=["system-admin"])
 
 @public_router.get("", response_model=list[PublicOrganizationResponse])
 async def list_public_organizations(
-    session: SessionDep,
+    session: SessionDep, user: OptionalUser,
 ) -> list[PublicOrganizationResponse]:
+    if user is not None and user.role == UserRole.CLIENT:
+        organization = await OrganizationRepository(session).get_by_id(user.organization_id)
+        return [PublicOrganizationResponse.model_validate(organization)] if organization and organization.is_active else []
     organizations = await OrganizationService(session).list_active()
     return [PublicOrganizationResponse.model_validate(item) for item in organizations]
 
 
-async def _active_organization_id(session: SessionDep, slug: str) -> UUID:
+async def _active_organization_id(
+    session: SessionDep, slug: str, user: UserModel | None = None,
+) -> UUID:
     organization = await OrganizationRepository(session).get_active_by_identifier(slug)
-    if organization is None:
+    if organization is None or (
+        user is not None and user.role == UserRole.CLIENT
+        and organization.id != user.organization_id
+    ):
         raise OrganizationNotFound("The requested organization does not exist.")
     return organization.id
 
@@ -58,6 +67,7 @@ async def _active_organization_id(session: SessionDep, slug: str) -> UUID:
 async def list_organization_facilities(
     organization_slug: str,
     session: SessionDep,
+    user: OptionalUser,
     zone: Zone | None = None,
     sport_type: SportType | None = None,
     facility_kind: FacilityKind | None = None,
@@ -66,7 +76,7 @@ async def list_organization_facilities(
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=24, ge=1, le=100),
 ) -> Page[FacilityResponse]:
-    organization_id = await _active_organization_id(session, organization_slug)
+    organization_id = await _active_organization_id(session, organization_slug, user)
     items, total = await FacilityService(session).list_catalog(
         zone=zone,
         sport_type=sport_type.value if sport_type else None,
@@ -90,9 +100,9 @@ async def list_organization_facilities(
     response_model=FacilityDetailResponse,
 )
 async def read_organization_facility(
-    organization_slug: str, facility_slug: str, session: SessionDep
+    organization_slug: str, facility_slug: str, session: SessionDep, user: OptionalUser,
 ) -> FacilityDetailResponse:
-    organization_id = await _active_organization_id(session, organization_slug)
+    organization_id = await _active_organization_id(session, organization_slug, user)
     facility = await FacilityService(session).get_by_slug(
         facility_slug, organization_id=organization_id
     )
@@ -104,9 +114,9 @@ async def read_organization_facility(
     response_model=FacilityDetailResponse,
 )
 async def read_organization_facility_by_id(
-    organization_slug: str, facility_id: UUID, session: SessionDep
+    organization_slug: str, facility_id: UUID, session: SessionDep, user: OptionalUser,
 ) -> FacilityDetailResponse:
-    organization_id = await _active_organization_id(session, organization_slug)
+    organization_id = await _active_organization_id(session, organization_slug, user)
     facility = await FacilityService(session).get(
         facility_id, organization_id=organization_id
     )
@@ -122,9 +132,10 @@ async def read_organization_availability(
     organization_slug: str,
     facility_id: UUID,
     session: SessionDep,
+    user: OptionalUser,
     target_date: date = Query(alias="date"),
 ) -> AvailabilityResponse:
-    organization_id = await _active_organization_id(session, organization_slug)
+    organization_id = await _active_organization_id(session, organization_slug, user)
     result = await AvailabilityService(session).for_date(
         facility_id,
         target_date,
@@ -171,11 +182,12 @@ async def check_organization_availability(
     organization_slug: str,
     facility_id: UUID,
     session: SessionDep,
+    user: OptionalUser,
     target_date: date = Query(alias="date"),
     start: time = Query(),
     end: time = Query(),
 ) -> RangeCheckResponse:
-    organization_id = await _active_organization_id(session, organization_slug)
+    organization_id = await _active_organization_id(session, organization_slug, user)
     result = await AvailabilityService(session).check_range(
         facility_id,
         target_date,

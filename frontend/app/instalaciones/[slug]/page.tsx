@@ -5,7 +5,8 @@ import { notFound, redirect } from "next/navigation";
 import { TechnicalLabel } from "@/components/atoms/technical-label";
 import { PublicLayout } from "@/components/templates/public-layout";
 import { ReservationFlow } from "@/components/organisms/reservation-flow";
-import { ApiError, facilitiesApi } from "@/lib/api";
+import { ApiError } from "@/lib/api";
+import { resolveServerOrganization, serverRequest } from "@/lib/server-session";
 import {
   KIND_LABEL,
   SPORT_LABEL,
@@ -17,8 +18,6 @@ import {
 } from "@/lib/format";
 import type { FacilityDetail } from "@/lib/types";
 
-export const revalidate = 60;
-
 type Params = {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ organization?: string }>;
@@ -26,7 +25,9 @@ type Params = {
 
 async function loadFacility(slug: string, organizationSlug: string): Promise<FacilityDetail> {
   try {
-    return await facilitiesApi.bySlugForOrganization(organizationSlug, slug, 60);
+    return await serverRequest<FacilityDetail>(
+      `/organizations/${encodeURIComponent(organizationSlug)}/facilities/${encodeURIComponent(slug)}`,
+    );
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) notFound();
     throw error;
@@ -35,10 +36,12 @@ async function loadFacility(slug: string, organizationSlug: string): Promise<Fac
 
 export async function generateMetadata({ params, searchParams }: Params): Promise<Metadata> {
   const { slug } = await params;
-  const { organization } = await searchParams;
+  const organization = await resolveServerOrganization((await searchParams).organization);
   if (!organization) return { title: "Instalaciones" };
   try {
-    const facility = await facilitiesApi.bySlugForOrganization(organization, slug, 60);
+    const facility = await serverRequest<FacilityDetail>(
+      `/organizations/${encodeURIComponent(organization)}/facilities/${encodeURIComponent(slug)}`,
+    );
     return { title: facility.name, description: facility.description.slice(0, 160) };
   } catch {
     return { title: "Instalacion" };
@@ -47,7 +50,7 @@ export async function generateMetadata({ params, searchParams }: Params): Promis
 
 export default async function FacilityDetailPage({ params, searchParams }: Params) {
   const { slug } = await params;
-  const { organization } = await searchParams;
+  const organization = await resolveServerOrganization((await searchParams).organization);
   if (!organization) redirect("/organizaciones");
   const facility = await loadFacility(slug, organization);
 

@@ -7,11 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.security import issue_session_token, verify_password
 from app.domain.enums import UserRole
-from app.domain.errors import AccountDisabled, AuthenticationFailed
+from app.domain.errors import AuthenticationFailed
 from app.infrastructure.google_identity import GoogleIdentityVerifier, GoogleVerifier
 from app.infrastructure.models import UserModel
 from app.repositories.organization_repository import OrganizationRepository
 from app.repositories.user_repository import UserRepository
+from app.services.user_service import UserService
 
 
 @dataclass(frozen=True)
@@ -43,22 +44,16 @@ class AuthService:
             user.name = identity.name
             user.avatar_url = identity.picture
 
-        organization = await self.organizations.get_by_id(user.organization_id)
-        if organization is None:
-            await self.session.rollback()
-            raise AuthenticationFailed("This account cannot access SIRID.")
-
-        # `is False`: un usuario recien creado aun no tiene valor persistido.
-        if user.is_active is False:
-            await self.session.rollback()
-            raise AccountDisabled(
-                "Tu cuenta esta desactivada. Contacta al administrador."
-            )
-
         # ADMIN_EMAILS es solo el bootstrap del administrador del sistema; los
         # demás cambios de rol persisten desde el panel administrativo.
         if identity.email in settings.admin_email_set:
             user.role = UserRole.ADMIN
+
+        try:
+            await UserService(self.session).assert_can_access(user)
+        except AuthenticationFailed:
+            await self.session.rollback()
+            raise
 
         await self.session.flush()
         await self.session.commit()
@@ -77,13 +72,7 @@ class AuthService:
         if not verify_password(password, user.password_hash if user else None):
             raise AuthenticationFailed("Usuario o contrasena incorrectos.")
 
-        organization = await self.organizations.get_by_id(user.organization_id)
-        if organization is None:
-            raise AuthenticationFailed("This account cannot access SIRID.")
-        if user.is_active is False:
-            raise AccountDisabled(
-                "Tu cuenta esta desactivada. Contacta al administrador."
-            )
+        await UserService(self.session).assert_can_access(user)
 
         token, max_age = issue_session_token(user.id, user.role)
         return Session(user=user, token=token, max_age_seconds=max_age)
@@ -115,6 +104,7 @@ class AuthService:
         else:
             user.role = role
 
+        await UserService(self.session).assert_can_access(user)
         await self.session.commit()
         await self.session.refresh(user)
         token, max_age = issue_session_token(user.id, user.role)

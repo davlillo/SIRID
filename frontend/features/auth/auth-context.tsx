@@ -49,12 +49,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     staleTime: 5 * 60_000,
   });
 
+  async function replaceSession(user: User | null) {
+    // Cancel in-flight reads before changing identity so an old response cannot
+    // restore the previous account or repopulate tenant-sensitive cached data.
+    await queryClient.cancelQueries();
+    queryClient.removeQueries({
+      predicate: (query) => query.queryKey[0] !== "auth",
+    });
+    queryClient.setQueryData(SESSION_QUERY_KEY, user);
+  }
+
   const login = useMutation({
     mutationFn: authApi.loginWithGoogle,
-    onSuccess: (user) => {
-      queryClient.setQueryData(SESSION_QUERY_KEY, user);
-      queryClient.invalidateQueries({ queryKey: ["reservations"] });
-      notify(`Sesion iniciada como ${user.name}.`, "success");
+    onSuccess: async (user) => {
+      await replaceSession(user);
+      notify(`Sesión iniciada como ${user.name}.`, "success");
     },
     onError: (error) => {
       notify(error instanceof ApiError ? error.detail : "No se pudo iniciar sesion.", "error");
@@ -64,10 +73,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const passwordLogin = useMutation({
     mutationFn: ({ identifier, password }: { identifier: string; password: string }) =>
       authApi.loginWithPassword(identifier, password),
-    onSuccess: (user) => {
-      queryClient.setQueryData(SESSION_QUERY_KEY, user);
-      queryClient.invalidateQueries({ queryKey: ["reservations"] });
-      notify(`Sesion iniciada como ${user.name}.`, "success");
+    onSuccess: async (user) => {
+      await replaceSession(user);
+      notify(`Sesión iniciada como ${user.name}.`, "success");
     },
     onError: (error) => {
       notify(error instanceof ApiError ? error.detail : "No se pudo iniciar sesion.", "error");
@@ -76,9 +84,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const developmentLogin = useMutation({
     mutationFn: authApi.loginForDevelopment,
-    onSuccess: (user) => {
-      queryClient.setQueryData(SESSION_QUERY_KEY, user);
-      queryClient.invalidateQueries({ queryKey: ["reservations"] });
+    onSuccess: async (user) => {
+      await replaceSession(user);
       notify(`Sesion de desarrollo iniciada como ${user.role}.`, "success");
     },
     onError: (error) => {
@@ -91,11 +98,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useMutation({
     mutationFn: authApi.logout,
-    onSuccess: () => {
-      queryClient.setQueryData(SESSION_QUERY_KEY, null);
-      queryClient.removeQueries({ queryKey: ["reservations"] });
-      queryClient.removeQueries({ queryKey: ["admin"] });
-      notify("Sesion cerrada.");
+    onSuccess: async () => {
+      await replaceSession(null);
+      notify("Sesión cerrada.");
+    },
+    onError: (error) => {
+      notify(error instanceof ApiError ? error.detail : "No se pudo cerrar la sesión. Intenta nuevamente.", "error");
     },
   });
 

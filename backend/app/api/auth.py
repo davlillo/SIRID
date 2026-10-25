@@ -6,12 +6,14 @@ from app.api.deps import CurrentUser, SessionDep, login_rate_limit
 from app.core.config import settings
 from app.infrastructure.google_identity import GoogleIdentityVerifier, GoogleVerifier
 from app.schemas.auth import (
+    AcceptInvitationRequest,
     DevelopmentLoginRequest,
     GoogleLoginRequest,
     PasswordLoginRequest,
     UserResponse,
 )
 from app.services.auth_service import AuthService
+from app.services.invitation_service import InvitationService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -90,6 +92,11 @@ async def login_for_development(
 @router.get("/me", response_model=UserResponse, summary="Usuario de la sesion actual")
 async def read_me(user: CurrentUser) -> UserResponse:
     return UserResponse.model_validate(user)
+
+
+@router.post("/invitations/accept", status_code=204, dependencies=[Depends(login_rate_limit)])
+async def accept_invitation(payload: AcceptInvitationRequest, session: SessionDep) -> None:
+    await InvitationService(session).accept(payload.token, payload.password)
 
 
 @router.post("/logout", status_code=204, summary="Cierra la sesion")

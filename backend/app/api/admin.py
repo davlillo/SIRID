@@ -12,10 +12,10 @@ from app.api.deps import (
     SessionDep,
     require_reservation_staff,
 )
-from app.api.notifications import schedule_notification
+from app.api.notifications import schedule_notification, send_client_email
 from app.core.config import settings
 from app.domain.enums import FacilityKind, ReservationStatus, SportType, UserRole, Zone
-from app.domain.errors import InvalidReportPeriod
+from app.domain.errors import DomainError, InvalidReportPeriod
 from app.infrastructure.models import UserModel
 from app.repositories.reservation_repository import ReservationRepository
 from app.schemas.admin import (
@@ -91,12 +91,16 @@ async def list_clients(
 
 @router.post("/clients", response_model=ClientResponse, status_code=201)
 async def create_client(
-    payload: ClientCreate, session: SessionDep, staff: CatalogStaffUser
+    payload: ClientCreate, session: SessionDep, staff: CatalogStaffUser,
+    background: BackgroundTasks,
 ) -> ClientResponse:
     data = payload.model_dump()
     if staff.role == UserRole.ENCARGADO:
         data["organization_id"] = staff.organization_id
+    if data["organization_id"] is None:
+        raise DomainError("Debe seleccionar una organización para el cliente.")
     client = await ClientService(session).create(data)
+    background.add_task(send_client_email, client.id)
     return ClientResponse.model_validate(client)
 
 

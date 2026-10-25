@@ -1,0 +1,40 @@
+{% extends "_base.html.j2" %}
+
+{% block preheader %}{{ customer_name }}, su acceso a {{ organization_name }} está listo. Elija su contraseña con este enlace válido por 24 horas.{% endblock %}
+{% block title %}Su próxima reserva empieza aquí.{% endblock %}
+{% block intro %}
+  El equipo de <strong>{{ organization_name }}</strong> creó su cuenta de cliente.
+  Solo falta elegir una contraseña personal para comenzar a gestionar sus reservas.
+{% endblock %}
+
+{% block details %}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:26px 0;background:#e8d8be;border-left:4px solid #c65f45;">
+  <tr><td style="padding:19px 20px;">
+    <p style="margin:0 0 7px;color:#574638;font-family:'Courier New',monospace;font-size:10px;font-weight:700;letter-spacing:1.5px;">SU ORGANIZACIÓN</p>
+    <p style="margin:0;color:#191817;font-size:19px;font-weight:700;line-height:1.5;">{{ organization_name }}</p>
+    <p style="margin:9px 0 0;color:#574638;font-size:13px;line-height:1.7;overflow-wrap:anywhere;">Correo de acceso: {{ customer_email }}</p>
+  </td></tr>
+</table>
+{% endblock %}
+
+{% block extra %}
+<h2 style="margin:0;font-size:20px;line-height:1.4;">Establezca su propia contraseña</h2>
+<p style="margin:10px 0 0;color:#575049;font-size:14px;line-height:1.8;">Elija una contraseña que solo usted conozca, incluso si el encargado le asignó una inicial. Nunca le pediremos que envíe su contraseña por correo.</p>
+{% endblock %}
+
+{% block action %}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:24px;">
+  <tr><td align="center" bgcolor="#924e37" style="background:#924e37;border-radius:9px;mso-padding-alt:18px 24px;">
+    <a href="{{ activation_url }}" style="display:block;padding:18px 24px;border-radius:9px;color:#ffffff;font-size:16px;font-weight:700;line-height:1.5;text-decoration:none;">Establecer mi contraseña &rarr;</a>
+  </td></tr>
+</table>
+<p style="margin:14px 0 0;color:#65705a;font-size:12px;font-weight:700;line-height:1.7;text-align:center;">Válido por 24 horas · Un solo uso · No comparta este enlace</p>
+<p style="margin:24px 0 0;color:#575049;font-size:13px;line-height:1.9;">1. Elija y confirme su contraseña.<br>2. Inicie sesión con {{ customer_email }}.<br>3. Acceda a las instalaciones de {{ organization_name }}.</p>
+<p style="margin:24px 0 6px;color:#575049;font-size:12px;line-height:1.7;">Si el botón no abre el formulario, copie este enlace completo en su navegador:</p>
+<p style="margin:0;font-family:'Courier New',monospace;font-size:11px;line-height:1.8;word-break:break-all;overflow-wrap:anywhere;"><a href="{{ activation_url }}" style="color:#924e37;">{{ activation_url }}</a></p>
+{% endblock %}
+
+{% block footer %}
+<p style="margin:0;color:#49352c;font-size:12px;font-weight:700;line-height:1.7;">{{ organization_name }} · Su acceso personal con SIRID</p>
+<p style="margin:8px 0 0;color:#696057;font-size:11px;line-height:1.7;">Si no reconoce esta invitación o el enlace venció, contacte al encargado de su organización para solicitar ayuda.</p>
+{% endblock %}

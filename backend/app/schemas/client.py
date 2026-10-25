@@ -15,7 +15,7 @@ def _validate_person_name(value: str) -> str:
 
 
 class ClientCreate(BaseModel):
-    organization_id: UUID
+    organization_id: UUID | None = None
     first_name: str = Field(min_length=2, max_length=80)
     last_name: str = Field(min_length=2, max_length=80)
     dui: str = Field(pattern=r"^\d{8}-\d$")

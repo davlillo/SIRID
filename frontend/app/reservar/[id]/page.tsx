@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
-import { ApiError, facilitiesApi } from "@/lib/api";
+import { ApiError } from "@/lib/api";
+import { resolveServerOrganization, serverRequest } from "@/lib/server-session";
+import type { FacilityDetail } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Reservar" };
 
@@ -18,11 +20,13 @@ type Params = {
  */
 export default async function ReservePage({ params, searchParams }: Params) {
   const { id } = await params;
-  const { organization } = await searchParams;
+  const organization = await resolveServerOrganization((await searchParams).organization);
   if (!organization) redirect("/organizaciones");
 
   try {
-    const facility = await facilitiesApi.byIdForOrganization(organization, id);
+    const facility = await serverRequest<FacilityDetail>(
+      `/organizations/${encodeURIComponent(organization)}/facilities/id/${encodeURIComponent(id)}`,
+    );
     redirect(`/instalaciones/${facility.slug}?organization=${encodeURIComponent(organization)}#contenido`);
   } catch (error) {
     if (error instanceof ApiError) notFound();

@@ -11,11 +11,11 @@ from app.core.config import settings
 from app.core.security import read_session_token
 from app.domain.enums import UserRole
 from app.domain.errors import (
-    AccountDisabled,
     AdminRequired,
     AuthenticationFailed,
     RateLimited,
     ReservationStaffRequired,
+    UserNotFound,
 )
 from app.infrastructure.database import get_session
 from app.infrastructure.models import UserModel
@@ -30,9 +30,11 @@ async def optional_user(request: Request, session: SessionDep) -> UserModel | No
         return None
     try:
         user_id, _ = read_session_token(token)
-        user = await UserService(session).require_user(user_id)
-        return user if user.is_active else None
-    except Exception:
+        service = UserService(session)
+        user = await service.require_user(user_id)
+        await service.assert_can_access(user)
+        return user
+    except (AuthenticationFailed, UserNotFound):
         # Una cookie corrupta o caducada equivale a no tener sesion.
         return None
 
@@ -43,9 +45,9 @@ async def current_user(request: Request, session: SessionDep) -> UserModel:
         raise AuthenticationFailed("A session is required for this operation.")
     # El rol del token es solo una pista: el usuario se relee de la base.
     user_id, _ = read_session_token(token)
-    user = await UserService(session).require_user(user_id)
-    if not user.is_active:
-        raise AccountDisabled("Tu cuenta esta desactivada. Contacta al administrador.")
+    service = UserService(session)
+    user = await service.require_user(user_id)
+    await service.assert_can_access(user)
     return user
 
 
@@ -115,5 +117,6 @@ availability_rate_limit = RateLimiter(
     limit=120, window_seconds=60, scope="availability"
 )
 reservation_rate_limit = RateLimiter(limit=20, window_seconds=60, scope="reservation")
+smtp_test_rate_limit = RateLimiter(limit=5, window_seconds=60, scope="smtp-test")
 
-RATE_LIMITERS = (login_rate_limit, availability_rate_limit, reservation_rate_limit)
+RATE_LIMITERS = (login_rate_limit, availability_rate_limit, reservation_rate_limit, smtp_test_rate_limit)

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { PublicLayout } from "@/components/templates/public-layout";
 import { FacilityCatalog } from "@/components/organisms/facility-catalog";
 import { TechnicalLabel } from "@/components/atoms/technical-label";
+import { resolveServerOrganization } from "@/lib/server-session";
 
 export const metadata: Metadata = {
   title: "Instalaciones",
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
 type SearchParams = { searchParams: Promise<{ organization?: string }> };
 
 export default async function FacilitiesPage({ searchParams }: SearchParams) {
-  const { organization } = await searchParams;
+  const organization = await resolveServerOrganization((await searchParams).organization);
   if (!organization) redirect("/organizaciones");
   return (
     <PublicLayout organizationSlug={organization}>

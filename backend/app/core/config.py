@@ -1,6 +1,8 @@
 from functools import cached_property
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,6 +13,7 @@ class Settings(BaseSettings):
 
     database_url: str
     frontend_url: str = "http://localhost:3000"
+    facility_upload_dir: Path = Path(__file__).resolve().parents[2] / "uploads" / "facilities"
 
     google_client_id: str = ""
     dev_auth_enabled: bool = False
@@ -25,9 +28,12 @@ class Settings(BaseSettings):
 
     smtp_host: str = "smtp.gmail.com"
     smtp_port: int = 587
-    smtp_username: str = ""
-    smtp_app_password: str = ""
-    smtp_from: str = ""
+    smtp_username: str = Field(default="", validation_alias=AliasChoices("SMTP_USERNAME", "SMTP_USER"))
+    smtp_app_password: str = Field(default="", validation_alias=AliasChoices("SMTP_APP_PASSWORD", "SMTP_PASS"))
+    smtp_from: str = Field(default="", validation_alias=AliasChoices("SMTP_FROM", "FROM_EMAIL", "SMTP_USERNAME", "SMTP_USER"))
+    smtp_from_name: str = Field(default="SIRID", validation_alias=AliasChoices("SMTP_FROM_NAME", "FROM_NAME"))
+    smtp_encryption_key: str = ""
+    smtp_allowed_hosts: str = "smtp.gmail.com,smtp.office365.com,smtp.mail.yahoo.com"
 
     # Cuenta(s) de bootstrap para el administrador del sistema.
     admin_emails: str = ""

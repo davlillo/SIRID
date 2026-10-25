@@ -90,6 +90,8 @@
   :root[data-theme="dark"] .sirid-flow-background { opacity: 0.18; }
 
   .dvl-shell, .sirid-admin-shell { position: relative; z-index: 1; }
+  body:has(.sirid-admin-shell) .sirid-flow-background { opacity: 0.1; }
+  :root[data-theme="dark"] body:has(.sirid-admin-shell) .sirid-flow-background { opacity: 0.06; }
 
   a {
     color: inherit;

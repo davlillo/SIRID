@@ -121,6 +121,8 @@ export const authApi = {
     request<User>("/auth/development", { method: "POST", body: { role } }),
   me: () => request<User>("/auth/me"),
   logout: () => request<void>("/auth/logout", { method: "POST" }),
+  acceptInvitation: (token: string, password: string) =>
+    request<void>("/auth/invitations/accept", { method: "POST", body: { token, password } }),
 };
 
 // --------------------------------------------------------------------------- //
@@ -234,7 +236,34 @@ export type AdminReservationReportFilters = {
   date_to: string;
 };
 
+export type SmtpSettings = {
+  configured: boolean;
+  platform_configured: boolean;
+  encryption_configured: boolean;
+  allowed_hosts: string[];
+  host: string;
+  port: number;
+  username: string;
+  from_email: string;
+  enabled: boolean;
+};
+
+export type SmtpInput = Pick<SmtpSettings, "host" | "port" | "username" | "from_email" | "enabled"> & {
+  password?: string;
+};
+
 export const adminApi = {
+  smtp: (id: string) => request<SmtpSettings>(`/admin/organizations/${id}/smtp`),
+  saveSmtp: (id: string, body: SmtpInput) =>
+    request<SmtpSettings>(`/admin/organizations/${id}/smtp`, { method: "PATCH", body }),
+  testSmtp: (id: string, recipient: string, usePlatform: boolean) =>
+    request<{ status: "SENT" | "FAILED" | "SKIPPED"; detail: string | null }>(`/admin/organizations/${id}/smtp/test`, {
+      method: "POST", body: { recipient, use_platform: usePlatform },
+    }),
+  inviteClient: (id: string) =>
+    request<{ status: string }>(`/admin/clients/${id}/invitation`, { method: "POST" }),
+  clientNotifications: (id: string) =>
+    request<NotificationLog[]>(`/admin/clients/${id}/notifications`),
   clients: () => request<Client[]>("/admin/clients"),
   createClient: (body: {
     organization_id: string;
