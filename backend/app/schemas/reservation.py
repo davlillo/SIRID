@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.domain.enums import ReservationStatus
 
@@ -55,4 +55,9 @@ class AdminReservationResponse(ReservationResponse):
 
 
 class ReservationNoteRequest(BaseModel):
-    note: str | None = Field(default=None, max_length=1000)
+    note: str = Field(min_length=3, max_length=1000)
+
+    @field_validator("note", mode="before")
+    @classmethod
+    def strip_note(cls, value: str) -> str:
+        return value.strip() if isinstance(value, str) else value

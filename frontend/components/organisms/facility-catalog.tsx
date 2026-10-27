@@ -48,7 +48,7 @@ export function FacilityCatalog({ organizationSlug }: { organizationSlug: string
     <div className="pb-8">
       <form
         aria-label="Filtros del catalogo"
-        className="grid gap-4 border border-charcoal/20 bg-sand/30 p-5 md:grid-cols-4"
+        className="sirid-panel grid gap-4 bg-sand/25 p-5 md:grid-cols-4 md:p-7"
         onSubmit={(event) => event.preventDefault()}
       >
         <Field label="Zona" htmlFor="filter-zone">
@@ -125,7 +125,7 @@ export function FacilityCatalog({ organizationSlug }: { organizationSlug: string
         ) : null}
       </form>
 
-      <div className="mt-8">
+      <div className="mt-10">
         {query.isPending ? <LoadingBlock label="CARGANDO CATALOGO" /> : null}
 
         {query.isError ? (
@@ -152,12 +152,12 @@ export function FacilityCatalog({ organizationSlug }: { organizationSlug: string
         ) : null}
 
         {grouped.map(([zone, facilities]) => (
-          <section key={zone} className="mb-12">
-            <div className="mb-4 flex items-baseline justify-between border-b border-charcoal/15 pb-2">
+          <section key={zone} className="mb-14">
+            <div className="mb-5 flex items-baseline justify-between border-b border-charcoal/15 pb-3">
               <h2 className="font-display text-2xl font-semibold">{ZONE_LABEL[zone]}</h2>
               <TechnicalLabel>{facilities.length} ESPACIOS</TechnicalLabel>
             </div>
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {facilities.map((facility, index) => (
                 <FacilityCard
                   key={facility.id}

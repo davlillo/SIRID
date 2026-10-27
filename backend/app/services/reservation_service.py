@@ -154,7 +154,7 @@ class ReservationService:
         )
 
     async def cancel(
-        self, reservation_id: UUID, actor: UserModel, note: str | None = None
+        self, reservation_id: UUID, actor: UserModel, note: str
     ) -> ReservationModel:
         reservation = await self.get_for_actor(reservation_id, actor)
         return await self._transition(
@@ -175,7 +175,7 @@ class ReservationService:
         )
 
     async def admin_cancel(
-        self, reservation_id: UUID, encargado: UserModel, note: str | None = None
+        self, reservation_id: UUID, encargado: UserModel, note: str
     ) -> ReservationModel:
         reservation = await self._reservation_for_encargado(reservation_id, encargado)
         return await self._transition(
@@ -220,7 +220,7 @@ class ReservationService:
             assert_transition(previous, target)
 
         reservation.status = target
-        if admin_note and actor.role == UserRole.ENCARGADO:
+        if admin_note and target == ReservationStatus.CANCELLED:
             reservation.admin_note = admin_note
 
         self.audit.record(

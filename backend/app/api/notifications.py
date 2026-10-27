@@ -27,3 +27,11 @@ def schedule_notification(
     background: BackgroundTasks, reservation_id: UUID, template: str
 ) -> None:
     background.add_task(send_reservation_email, reservation_id, template)
+
+
+async def send_client_email(client_id: UUID, resend: bool = False) -> None:
+    try:
+        async with SessionLocal() as session:
+            await NotificationService(session).notify_client(client_id, resend=resend)
+    except Exception:  # noqa: BLE001 - account creation must survive email failures
+        logger.exception("Could not dispatch client invitation for %s", client_id)

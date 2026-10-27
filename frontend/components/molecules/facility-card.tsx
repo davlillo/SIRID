@@ -16,7 +16,7 @@ export function FacilityCard({
   const href = `/instalaciones/${facility.slug}?organization=${encodeURIComponent(organizationSlug)}`;
 
   return (
-    <article className="group flex flex-col border border-charcoal/20 bg-ivory transition-colors duration-base ease-technical hover:border-charcoal">
+    <article className="sirid-catalog-card group flex flex-col overflow-hidden rounded-[2rem] border border-charcoal/15 bg-ivory transition-transform duration-base ease-technical hover:-translate-y-1">
       <Link
         href={href}
         className="flex h-full flex-col focus-visible:outline-none"
@@ -29,11 +29,11 @@ export function FacilityCard({
             loading={index < 3 ? "eager" : "lazy"}
             className="h-full w-full object-cover transition-transform duration-slow ease-technical group-hover:scale-[1.02]"
           />
-          <span className="absolute left-0 top-0 bg-charcoal px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-ivory">
+          <span className="absolute left-3 top-3 rounded-full bg-charcoal px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-ivory">
             {String(index + 1).padStart(2, "0")} / {KIND_LABEL[facility.facility_kind]}
           </span>
           {!facility.is_bookable ? (
-            <span className="absolute right-0 top-0 bg-sand px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-coffee">
+            <span className="absolute right-3 top-3 rounded-full bg-sand px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-coffee">
               Informativo
             </span>
           ) : null}

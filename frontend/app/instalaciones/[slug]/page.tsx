@@ -5,7 +5,8 @@ import { notFound, redirect } from "next/navigation";
 import { TechnicalLabel } from "@/components/atoms/technical-label";
 import { PublicLayout } from "@/components/templates/public-layout";
 import { ReservationFlow } from "@/components/organisms/reservation-flow";
-import { ApiError, facilitiesApi } from "@/lib/api";
+import { ApiError } from "@/lib/api";
+import { resolveServerOrganization, serverRequest } from "@/lib/server-session";
 import {
   KIND_LABEL,
   SPORT_LABEL,
@@ -17,8 +18,6 @@ import {
 } from "@/lib/format";
 import type { FacilityDetail } from "@/lib/types";
 
-export const revalidate = 60;
-
 type Params = {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ organization?: string }>;
@@ -26,7 +25,9 @@ type Params = {
 
 async function loadFacility(slug: string, organizationSlug: string): Promise<FacilityDetail> {
   try {
-    return await facilitiesApi.bySlugForOrganization(organizationSlug, slug, 60);
+    return await serverRequest<FacilityDetail>(
+      `/organizations/${encodeURIComponent(organizationSlug)}/facilities/${encodeURIComponent(slug)}`,
+    );
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) notFound();
     throw error;
@@ -35,10 +36,12 @@ async function loadFacility(slug: string, organizationSlug: string): Promise<Fac
 
 export async function generateMetadata({ params, searchParams }: Params): Promise<Metadata> {
   const { slug } = await params;
-  const { organization } = await searchParams;
+  const organization = await resolveServerOrganization((await searchParams).organization);
   if (!organization) return { title: "Instalaciones" };
   try {
-    const facility = await facilitiesApi.bySlugForOrganization(organization, slug, 60);
+    const facility = await serverRequest<FacilityDetail>(
+      `/organizations/${encodeURIComponent(organization)}/facilities/${encodeURIComponent(slug)}`,
+    );
     return { title: facility.name, description: facility.description.slice(0, 160) };
   } catch {
     return { title: "Instalacion" };
@@ -47,7 +50,7 @@ export async function generateMetadata({ params, searchParams }: Params): Promis
 
 export default async function FacilityDetailPage({ params, searchParams }: Params) {
   const { slug } = await params;
-  const { organization } = await searchParams;
+  const organization = await resolveServerOrganization((await searchParams).organization);
   if (!organization) redirect("/organizaciones");
   const facility = await loadFacility(slug, organization);
 
@@ -79,7 +82,7 @@ export default async function FacilityDetailPage({ params, searchParams }: Param
 
       <section className="grid gap-10 py-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
         <div>
-          <div className="overflow-hidden border border-charcoal">
+          <div className="overflow-hidden rounded-[2rem] border border-charcoal/15 bg-sand/40 shadow-xl shadow-charcoal/10">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={facilityImage(facility.facility_kind, facility.images)}
@@ -92,7 +95,7 @@ export default async function FacilityDetailPage({ params, searchParams }: Param
             {ZONE_LABEL[facility.zone]} · {KIND_LABEL[facility.facility_kind]} ·{" "}
             {SPORT_LABEL[facility.sport_type]}
           </TechnicalLabel>
-          <h1 className="mt-3 font-display text-5xl font-semibold tracking-[-0.04em]">
+          <h1 className="mt-3 font-display text-5xl font-bold tracking-[-0.06em]">
             {facility.name}
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-8 text-charcoal/70">
@@ -100,7 +103,7 @@ export default async function FacilityDetailPage({ params, searchParams }: Param
           </p>
         </div>
 
-        <aside className="border border-charcoal/20 bg-sand/30 p-5">
+        <aside className="sirid-panel bg-sand/25 p-6 lg:sticky lg:top-24">
           <TechnicalLabel>FICHA TECNICA</TechnicalLabel>
           <dl className="mt-4 divide-y divide-charcoal/10 text-sm">
             <Spec label="Capacidad" value={`${facility.capacity} personas`} />
@@ -154,7 +157,7 @@ export default async function FacilityDetailPage({ params, searchParams }: Param
             <ReservationFlow facility={facility} organizationSlug={organization} />
           </div>
         ) : (
-          <p className="mt-4 max-w-xl border border-dashed border-charcoal/30 px-5 py-6 text-sm leading-6 text-charcoal/70">
+          <p className="sirid-panel mt-4 max-w-xl border-dashed px-5 py-6 text-sm leading-6 text-charcoal/70">
             Este espacio aparece en el plano para orientarte, pero no forma parte del catalogo
             reservable. El acceso va incluido con cualquier reserva deportiva.
           </p>

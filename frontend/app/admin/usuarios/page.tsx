@@ -33,16 +33,20 @@ export default function AdminUsersPage() {
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await createUser.mutateAsync({
-      email: email.trim().toLowerCase(),
-      name: name.trim() || undefined,
-      organization_id: organizationId,
-      role,
-      password: password || undefined,
-    });
-    setEmail("");
-    setName("");
-    setPassword("");
+    try {
+      await createUser.mutateAsync({
+        email: email.trim().toLowerCase(),
+        name: name.trim() || undefined,
+        organization_id: organizationId,
+        role,
+        password: password || undefined,
+      });
+      setEmail("");
+      setName("");
+      setPassword("");
+    } catch {
+      // The mutation displays the error; retain the form values for retry.
+    }
   }
 
   return (
@@ -50,15 +54,15 @@ export default function AdminUsersPage() {
       <TechnicalLabel>USERS_01</TechnicalLabel>
       <h1 className="mt-3 font-display text-4xl font-semibold tracking-[-0.03em]">Usuarios</h1>
       <p className="mt-3 max-w-2xl text-sm leading-6 text-charcoal/65">
-        Provisiona cuentas Google y asigna cada usuario a una organización. Los encargados solo
+        Crea cuentas con contraseña o acceso mediante Google y asigna cada usuario a una organización. Los encargados solo
         gestionan reservas de su organización; los clientes solo pueden operar sus propias reservas.
       </p>
 
       <form
         onSubmit={submit}
-        className="mt-8 grid gap-4 border border-charcoal bg-sand/30 p-5 md:grid-cols-2"
+        className="sirid-panel mt-8 grid items-start gap-5 bg-sand/25 p-5 sm:p-6 md:grid-cols-2"
       >
-        <Field label="Correo de Google" htmlFor="managed-user-email">
+        <Field label="Correo electrónico" htmlFor="managed-user-email">
           <Input
             id="managed-user-email"
             type="email"
@@ -96,10 +100,11 @@ export default function AdminUsersPage() {
           <Select
             id="managed-user-org"
             required
+            disabled={organizations.isPending || organizations.isError}
             value={organizationId}
             onChange={(event) => setOrganizationId(event.target.value)}
           >
-            <option value="">Selecciona una organización</option>
+            <option value="">{organizations.isPending ? "Cargando organizaciones…" : "Selecciona una organización"}</option>
             {organizations.data
               ?.filter((item) => item.is_active)
               .map((organization) => (
@@ -109,6 +114,13 @@ export default function AdminUsersPage() {
               ))}
           </Select>
         </Field>
+        {organizations.isError ? (
+          <div className="md:col-span-2">
+            <ErrorState description="No se pudieron cargar las organizaciones."
+              action={<Button type="button" variant="secondary" onClick={() => void organizations.refetch()}>Reintentar</Button>}
+            />
+          </div>
+        ) : null}
         <Field label="Rol" htmlFor="managed-user-role">
           <Select
             id="managed-user-role"
@@ -120,7 +132,7 @@ export default function AdminUsersPage() {
           </Select>
         </Field>
         <div className="md:col-span-2">
-          <Button type="submit" disabled={createUser.isPending || !organizationId}>
+          <Button type="submit" disabled={createUser.isPending || organizations.isPending || organizations.isError || !organizations.data?.some((item) => item.id === organizationId && item.is_active)}>
             {createUser.isPending ? "Guardando…" : "Crear usuario"}
           </Button>
         </div>
@@ -141,8 +153,9 @@ export default function AdminUsersPage() {
         ) : null}
 
         {users.data && users.data.length > 0 ? (
-          <div className="mt-4 overflow-x-auto border border-charcoal/20">
+          <div className="sirid-table-wrap mt-4">
             <table className="w-full min-w-[42rem] border-collapse text-sm">
+              <caption className="sr-only">Usuarios, organizaciones y permisos de acceso</caption>
               <thead>
                 <tr className="bg-charcoal text-ivory">
                   {["Usuario", "Organización", "Rol", "Estado", "Acción"].map((heading) => (
@@ -155,17 +168,18 @@ export default function AdminUsersPage() {
               <tbody>
                 {users.data.map((user) => (
                   <tr key={user.id} className="border-t border-charcoal/10">
-                    <td className="px-3 py-2.5">
+                    <td className="max-w-xs break-words px-4 py-4">
                       <span className="font-medium">{user.name}</span>
-                      <span className="block text-xs text-charcoal/55">{user.email}</span>
+                      <span className="mt-1 block break-all text-xs text-charcoal/55">{user.email}</span>
                     </td>
-                    <td className="px-3 py-2.5">{organizationNames.get(user.organization_id) ?? "—"}</td>
+                    <td className="max-w-[14rem] break-words px-4 py-4">{organizationNames.get(user.organization_id) ?? "—"}</td>
                     <td className="px-3 py-2.5">
                       {user.role === "ADMIN" ? (
                         "Administrador del sistema"
                       ) : (
                         <Select
                           aria-label={`Rol de ${user.email}`}
+                          className="min-w-[9rem]"
                           value={user.role}
                           disabled={updateUser.isPending || !user.is_active}
                           onChange={(event) =>

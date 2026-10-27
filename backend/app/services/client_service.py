@@ -55,6 +55,8 @@ class ClientService:
             existing.phone = payload["phone"].strip()
             if payload.get("password"):
                 existing.password_hash = hash_password(payload["password"])
+                existing.invitation_token_hash = None
+                existing.invitation_expires_at = None
             await self._commit()
             await self.session.refresh(existing)
             return existing
@@ -115,11 +117,19 @@ class ClientService:
             if changes.get(field) is not None:
                 setattr(user, field, changes[field].strip())
         if email:
+            if email != user.email:
+                user.invitation_token_hash = None
+                user.invitation_expires_at = None
             user.email = email
         if changes.get("is_active") is not None:
             user.is_active = changes["is_active"]
+            if not user.is_active:
+                user.invitation_token_hash = None
+                user.invitation_expires_at = None
         if changes.get("password"):
             user.password_hash = hash_password(changes["password"])
+            user.invitation_token_hash = None
+            user.invitation_expires_at = None
         user.name = f"{user.first_name} {user.last_name}"
 
         await self._commit()

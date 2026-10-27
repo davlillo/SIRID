@@ -140,7 +140,7 @@ export function RangeChecker({
   return (
     <section
       aria-label="Consultar un horario especifico"
-      className="border border-charcoal/15 bg-sand/30 p-4"
+      className="rounded-2xl border border-charcoal/15 bg-sand/30 p-4 sm:p-5"
     >
       <TechnicalLabel>CONSULTAR UN HORARIO ESPECIFICO</TechnicalLabel>
 
@@ -201,7 +201,7 @@ export function RangeChecker({
 
       {wholeDay ? (
         <div className="mt-4 border-t border-charcoal/10 pt-4" aria-live="polite">
-          <div className="border-l-2 border-terracotta bg-ivory/70 px-3 py-2 text-sm">
+           <div className="rounded-r-xl border-l-2 border-terracotta bg-ivory/70 px-3 py-2 text-sm">
             <strong className="font-semibold">Este dia tiene entretiempo.</strong>{" "}
             La instalacion cierra{" "}
             {breaks.map((gap) => formatRange(gap.starts_at, gap.ends_at)).join(" y ")}, asi que
@@ -329,7 +329,7 @@ export function RangeChecker({
                       type="button"
                       disabled={!isBookable || !onPick}
                       onClick={() => pick(item)}
-                      className="border border-olive/60 bg-ivory px-3 py-2 text-left font-mono text-sm transition-colors duration-fast ease-technical hover:border-terracotta hover:bg-sand/60 disabled:cursor-not-allowed"
+                     className="min-h-11 rounded-xl border border-olive/60 bg-ivory px-3 py-2 text-left font-mono text-sm transition-colors duration-fast ease-technical hover:border-terracotta hover:bg-sand/60 disabled:cursor-not-allowed"
                     >
                       {formatRange(item.starts_at, item.ends_at)}
                       {item.amount ? (

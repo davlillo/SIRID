@@ -73,6 +73,20 @@ class OrganizationModel(Base):
     )
 
 
+class OrganizationSmtpModel(Base):
+    __tablename__ = "organization_smtp"
+
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), primary_key=True
+    )
+    host: Mapped[str] = mapped_column(String(255))
+    port: Mapped[int] = mapped_column(Integer)
+    username: Mapped[str] = mapped_column(String(320))
+    encrypted_password: Mapped[str] = mapped_column(Text)
+    from_email: Mapped[str] = mapped_column(String(320))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
 class UserModel(Base):
     __tablename__ = "users"
     __table_args__ = (
@@ -95,6 +109,8 @@ class UserModel(Base):
     avatar_url: Mapped[str | None] = mapped_column(String(2048))
     # Credencial local opcional. `None` = la cuenta solo entra con Google.
     password_hash: Mapped[str | None] = mapped_column(String(255))
+    invitation_token_hash: Mapped[str | None] = mapped_column(String(64), unique=True)
+    invitation_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     role: Mapped[UserRole] = mapped_column(
         user_role_enum, server_default=UserRole.CLIENT.value
     )
@@ -345,6 +361,9 @@ class NotificationLogModel(Base):
     )
     reservation_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("reservations.id", ondelete="CASCADE")
+    )
+    client_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
     recipient: Mapped[str] = mapped_column(String(320))
     template: Mapped[str] = mapped_column(String(80))

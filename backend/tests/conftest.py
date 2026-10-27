@@ -142,6 +142,14 @@ async def reset_engine_pool():
     await engine.dispose()
 
 
+@pytest.fixture(autouse=True)
+def isolate_smtp(monkeypatch):
+    """Tests must never send mail using real environment credentials."""
+    monkeypatch.setattr(settings, "smtp_username", "")
+    monkeypatch.setattr(settings, "smtp_app_password", "")
+    monkeypatch.setattr(settings, "smtp_from", "")
+
+
 @pytest_asyncio.fixture
 async def db_session():
     database = make_url(settings.database_url).database or ""

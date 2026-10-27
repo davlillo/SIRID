@@ -1,13 +1,16 @@
 {% extends "_base.html.j2" %}
 
-{% block title %}Reserva completada.{% endblock %}
+{% block preheader %}Gracias por su visita, {{ customer_name }}. Su reserva de {{ facility_name }} ya está en su historial.{% endblock %}
+{% block title %}Gracias por elegirnos.{% endblock %}
 
 {% block intro %}
-  registramos el uso de la instalacion. Gracias por jugar en SIRID.
+  Su reserva de <strong>{{ facility_name }}</strong> ha finalizado.
+  Gracias por visitar <strong>{{ organization_name }}</strong>; esperamos acompañarle en su próxima actividad.
 {% endblock %}
 
 {% block extra %}
   <p style="margin:20px 0 0;font-size:13px;line-height:1.6;color:rgba(25,24,23,0.65);">
-    Esta reserva ya forma parte de tu historial y no puede modificarse.
+    Esta reserva ya forma parte de su historial y no puede modificarse. Cuando quiera volver,
+    consulte los horarios disponibles en el catálogo de su organización.
   </p>
 {% endblock %}

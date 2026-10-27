@@ -106,7 +106,7 @@ export function ScheduleEditor({ facility }: { facility: Facility }) {
   const warnings = serverError ? [...messages, serverError] : messages;
 
   return (
-    <section className="border border-charcoal/20 bg-ivory p-5">
+    <section className="rounded-2xl border border-charcoal/15 bg-ivory p-5">
       <TechnicalLabel>HORARIO SEMANAL</TechnicalLabel>
       <p className="mt-1 text-sm text-charcoal/60">
         Define uno o varios rangos por dia y cuanto dura cada prestamo. Un cierre a las 00:00
@@ -122,7 +122,7 @@ export function ScheduleEditor({ facility }: { facility: Facility }) {
           {warnings.length > 0 ? (
             <div
               role="alert"
-              className="mt-4 border border-state-error/40 bg-state-error/5 p-3 text-sm text-state-error"
+               className="mt-4 rounded-xl border border-state-error/40 bg-state-error/5 p-3 text-sm text-state-error"
             >
               <strong className="block font-semibold">
                 Revisa el horario antes de guardar
@@ -162,7 +162,7 @@ export function ScheduleEditor({ facility }: { facility: Facility }) {
                     {ranges.map((range) => {
                       const hasError = invalid.has(range.key);
                       const control = cn(
-                        "min-h-11 border bg-ivory px-2 text-sm",
+                         "min-h-11 rounded-xl border bg-ivory px-2 text-sm",
                         hasError ? "border-state-error" : "border-charcoal/25",
                       );
                       const slotOptions = SLOT_OPTIONS.includes(range.slot_minutes)

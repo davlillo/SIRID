@@ -75,7 +75,7 @@ class ReservationRepository:
             ReservationModel.organization_id == organization_id,
         )
         return await self._paginate(
-            query.order_by(ReservationModel.starts_at.desc()), page, limit
+            query.order_by(ReservationModel.starts_at.desc(), ReservationModel.id.desc()), page, limit
         )
 
     async def list_for_admin(

@@ -1,6 +1,8 @@
 """Casos de aceptacion criticos del flujo de reserva (spect/10)."""
 
 from datetime import datetime, time, timedelta
+from decimal import Decimal
+from uuid import uuid4
 
 from app.core.config import settings
 from app.infrastructure.models import (
@@ -208,7 +210,7 @@ class TestOverlap:
     ):
         authenticate(client, customer)
         _, first = await create_reservation(client, facility)
-        await client.post(f"/v1/reservations/{first['id']}/cancel")
+        await client.post(f"/v1/reservations/{first['id']}/cancel", json={"note": "Cambio de planes"})
 
         status, _ = await create_reservation(client, facility)
 
@@ -246,7 +248,9 @@ class TestOwnership:
         _, reservation = await create_reservation(client, facility)
 
         authenticate(client, other_customer)
-        response = await client.post(f"/v1/reservations/{reservation['id']}/cancel")
+        response = await client.post(
+            f"/v1/reservations/{reservation['id']}/cancel", json={"note": "Cambio de planes"}
+        )
 
         assert response.status_code == 404
 
@@ -260,6 +264,38 @@ class TestOwnership:
         response = await client.get("/v1/reservations/me")
 
         assert response.json()["total"] == 0
+
+    async def test_my_reservations_are_ordered_and_paginated(
+        self, client, customer, other_customer, facility, db_session
+    ):
+        day = datetime.now(settings.timezone).date() + timedelta(days=2)
+        start = datetime.combine(day, time(18), tzinfo=settings.timezone)
+        for index in range(22):
+            db_session.add(ReservationModel(
+                id=uuid4(), organization_id=facility.organization_id,
+                customer_id=customer.id, facility_id=facility.id,
+                starts_at=start + timedelta(days=index),
+                ends_at=start + timedelta(days=index, hours=1),
+                status="PENDING", quoted_amount=Decimal("40.00"), currency="USD",
+            ))
+        db_session.add(ReservationModel(
+            id=uuid4(), organization_id=facility.organization_id,
+            customer_id=other_customer.id, facility_id=facility.id,
+            starts_at=start + timedelta(days=23),
+            ends_at=start + timedelta(days=23, hours=1),
+            status="PENDING", quoted_amount=Decimal("40.00"), currency="USD",
+        ))
+        await db_session.commit()
+        authenticate(client, customer)
+
+        first = (await client.get("/v1/reservations/me?page=1&limit=20")).json()
+        second = (await client.get("/v1/reservations/me?page=2&limit=20")).json()
+
+        assert first["total"] == second["total"] == 22
+        assert len(first["items"]) == 20
+        assert len(second["items"]) == 2
+        starts = [item["starts_at"] for item in first["items"] + second["items"]]
+        assert starts == sorted(starts, reverse=True)
 
     async def test_an_admin_cannot_read_reservations(
         self, client, customer, admin, facility
@@ -280,18 +316,33 @@ class TestCancellation:
         authenticate(client, customer)
         _, reservation = await create_reservation(client, facility)
 
-        response = await client.post(f"/v1/reservations/{reservation['id']}/cancel")
+        response = await client.post(
+            f"/v1/reservations/{reservation['id']}/cancel", json={"note": "Cambio de planes"}
+        )
 
         assert response.status_code == 200
         assert response.json()["status"] == "CANCELLED"
+        assert response.json()["admin_note"] == "Cambio de planes"
+
+    async def test_cancellation_requires_a_reason(self, client, customer, facility):
+        authenticate(client, customer)
+        _, reservation = await create_reservation(client, facility)
+
+        for payload in (None, {"note": "   "}, {"note": "No"}):
+            response = await client.post(
+                f"/v1/reservations/{reservation['id']}/cancel", json=payload
+            )
+            assert response.status_code == 422
+
+        assert (await client.get(f"/v1/reservations/{reservation['id']}")).json()["status"] == "PENDING"
 
     async def test_a_cancelled_reservation_cannot_be_cancelled_twice(
         self, client, customer, facility
     ):
         authenticate(client, customer)
         _, reservation = await create_reservation(client, facility)
-        await client.post(f"/v1/reservations/{reservation['id']}/cancel")
+        await client.post(f"/v1/reservations/{reservation['id']}/cancel", json={"note": "Cambio de planes"})
 
-        response = await client.post(f"/v1/reservations/{reservation['id']}/cancel")
+        response = await client.post(f"/v1/reservations/{reservation['id']}/cancel", json={"note": "Cambio de planes"})
 
         assert response.status_code == 409

@@ -115,7 +115,7 @@ export function AvailabilityCalendar({
                 aria-pressed={isSelected}
                 onClick={() => selectable && onSelect?.(slot)}
                 className={cn(
-                  "flex w-full min-h-16 flex-col items-start border px-3 py-2.5 text-left transition-colors duration-fast ease-technical",
+                   "flex w-full min-h-16 flex-col items-start rounded-xl border px-3 py-2.5 text-left transition-colors duration-fast ease-technical",
                   SLOT_STYLES[slot.status],
                   isSelected && "border-terracotta bg-terracotta text-ivory hover:bg-terracotta",
                 )}
@@ -156,7 +156,7 @@ function Legend() {
     <dl className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-charcoal/10 pt-4">
       {items.map(([style, label]) => (
         <Fragment key={label}>
-          <dt aria-hidden="true" className={cn("h-3 w-3 border", style)} />
+           <dt aria-hidden="true" className={cn("h-3 w-3 rounded-full border", style)} />
           <dd className="-ml-3 font-mono text-[10px] uppercase tracking-[0.14em] text-charcoal/60">
             {label}
           </dd>

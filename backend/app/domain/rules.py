@@ -82,7 +82,9 @@ def assert_positive_payment_amount(amount: Decimal) -> None:
 
 
 def assert_sufficient_payment(total_paid: Decimal, required: Decimal) -> None:
-    """HU-10 / HU-04: confirmar exige abono total >= importe cotizado."""
+    """HU-04 requires a recorded payment; HU-10 also requires sufficient funds."""
+    if total_paid <= 0:
+        raise InsufficientPayment("Debe registrar un pago antes de confirmar la reserva.")
     if total_paid < required:
         raise InsufficientPayment(
             "El pago registrado no alcanza el importe exigido de la reserva."

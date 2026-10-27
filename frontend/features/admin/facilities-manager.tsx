@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/atoms/button";
 import { IconAction } from "@/components/atoms/icon-action";
+import { Modal } from "@/components/atoms/modal";
 import { ErrorState, LoadingBlock } from "@/components/atoms/states";
 import { TechnicalLabel } from "@/components/atoms/technical-label";
 import { useAuth } from "@/features/auth/auth-context";
@@ -44,7 +45,7 @@ export function FacilitiesManager({ organizationId }: { organizationId: string }
   function select(facility: Facility) {
     setCreating(false);
     setEditing(facility);
-    setPanel("datos");
+    setPanel(canManageCatalog ? "datos" : "horario");
   }
 
   return (
@@ -63,7 +64,7 @@ export function FacilitiesManager({ organizationId }: { organizationId: string }
               setCreating(true);
             }}
           >
-            Nueva instalacion
+            Nueva instalación
           </Button>
         ) : null}
       </div>
@@ -71,16 +72,17 @@ export function FacilitiesManager({ organizationId }: { organizationId: string }
       {facilities.isPending ? <div className="mt-8"><LoadingBlock /></div> : null}
       {facilities.isError ? (
         <div className="mt-8">
-          <ErrorState description="No se pudo cargar el catalogo administrativo." />
+          <ErrorState description="No se pudo cargar el catálogo administrativo." />
         </div>
       ) : null}
 
-      <div className="mt-8 grid gap-6 xl:grid-cols-2 xl:items-stretch">
-        <section className="flex min-w-0 flex-col border border-charcoal/20 bg-ivory">
+      {facilities.isSuccess ? (
+      <div className="mt-8 min-w-0">
+        <section className="sirid-table-wrap flex min-w-0 flex-col">
           <div className="border-b border-charcoal/15 px-4 py-3">
-            <TechnicalLabel>CATALOGO</TechnicalLabel>
+            <TechnicalLabel>CATÁLOGO · {items.length} INSTALACIONES</TechnicalLabel>
           </div>
-          <table className="w-full table-fixed border-collapse text-sm">
+          <table className="w-full min-w-[42rem] table-fixed border-collapse text-sm">
             <caption className="sr-only">Instalaciones de la organización</caption>
             <thead>
               <tr className="bg-charcoal text-ivory">
@@ -133,11 +135,11 @@ export function FacilitiesManager({ organizationId }: { organizationId: string }
                       : "cursor-pointer border-t border-charcoal/10 hover:bg-sand/40"
                   }
                 >
-                  <td className="truncate px-3 py-2.5 font-medium" title={facility.name}>
+                  <td className="break-words px-3 py-4 font-medium" title={facility.name}>
                     {facility.name}
                   </td>
-                  <td className="truncate px-3 py-2.5">{ZONE_LABEL[facility.zone]}</td>
-                  <td className="truncate px-3 py-2.5" title={KIND_LABEL[facility.facility_kind]}>
+                  <td className="break-words px-3 py-4">{ZONE_LABEL[facility.zone]}</td>
+                  <td className="break-words px-3 py-4" title={KIND_LABEL[facility.facility_kind]}>
                     {KIND_LABEL[facility.facility_kind]}
                   </td>
                   <td className="px-3 py-2.5 font-mono">{facility.capacity}</td>
@@ -145,8 +147,8 @@ export function FacilitiesManager({ organizationId }: { organizationId: string }
                     <span
                       className={
                         facility.is_active
-                          ? "inline-block border border-olive px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-olive"
-                          : "inline-block border border-charcoal/30 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-charcoal/50"
+                           ? "inline-block rounded-full border border-olive px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-olive"
+                           : "inline-block rounded-full border border-charcoal/30 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-charcoal/50"
                       }
                     >
                       {facility.is_active ? "Activa" : "Inactiva"}
@@ -155,7 +157,7 @@ export function FacilitiesManager({ organizationId }: { organizationId: string }
                   <td className="px-3 py-2.5">
                     <div className="flex justify-end">
                       <IconAction
-                        label={`Editar ${facility.name}`}
+                        label={`${canManageCatalog ? "Editar" : "Gestionar"} ${facility.name}`}
                         onClick={(event) => {
                           event.stopPropagation();
                           select(facility);
@@ -175,10 +177,22 @@ export function FacilitiesManager({ organizationId }: { organizationId: string }
             </p>
           ) : null}
         </section>
+        <p className="mt-3 text-xs leading-5 text-charcoal/60">
+          Selecciona el lápiz de una instalación para gestionar sus datos, horarios y tarifas.
+        </p>
+      </div>
+      ) : null}
 
-        <div className="min-h-full">
+      <Modal
+        open={creating || editing !== null}
+        title={creating ? "Nueva instalación" : editing?.name ?? "Gestionar instalación"}
+        onClose={() => {
+          setCreating(false);
+          setEditing(null);
+        }}
+      >
           {creating && canManageCatalog ? (
-            <div className="h-full border border-charcoal bg-sand/30">
+            <div className="min-w-0">
               <FacilityForm
                 organizations={[]}
                 fixedOrganizationId={organizationId}
@@ -186,13 +200,13 @@ export function FacilitiesManager({ organizationId }: { organizationId: string }
               />
             </div>
           ) : editing ? (
-            <div className="h-full border border-charcoal/20 bg-ivory">
+            <div className="min-w-0">
               <div
                 role="tablist"
                 aria-label="Secciones de la instalación"
                 className="flex gap-1 border-b border-charcoal/15 px-2"
               >
-                {PANELS.map(([value, label]) => (
+                {PANELS.filter(([value]) => value !== "datos" || canManageCatalog).map(([value, label]) => (
                   <button
                     key={value}
                     type="button"
@@ -200,7 +214,7 @@ export function FacilitiesManager({ organizationId }: { organizationId: string }
                     aria-selected={panel === value}
                     onClick={() => setPanel(value)}
                     className={cn(
-                      "-mb-px border-b-2 px-3 py-2.5 text-sm transition-colors duration-fast",
+                       "-mb-px min-h-11 border-b-2 px-3 py-2.5 text-sm transition-colors duration-fast",
                       panel === value
                         ? "border-charcoal font-semibold text-charcoal"
                         : "border-transparent text-charcoal/60 hover:text-charcoal",
@@ -211,7 +225,7 @@ export function FacilitiesManager({ organizationId }: { organizationId: string }
                 ))}
               </div>
 
-              <div className="p-5">
+              <div className="pt-5">
                 {panel === "datos" && canManageCatalog ? (
                   <FacilityForm
                     key={editing.id}
@@ -229,18 +243,8 @@ export function FacilitiesManager({ organizationId }: { organizationId: string }
                 ) : null}
               </div>
             </div>
-          ) : (
-            <aside className="flex h-full min-h-[12rem] flex-col justify-center border border-dashed border-charcoal/25 bg-ivory/50 p-6">
-              <TechnicalLabel>EDICION</TechnicalLabel>
-              <p className="mt-3 text-sm leading-6 text-charcoal/60">
-                Selecciona una fila o el icono de{" "}
-                <strong className="font-semibold text-charcoal">lápiz</strong> para editar datos,
-                horario y tarifas.
-              </p>
-            </aside>
-          )}
-        </div>
-      </div>
+          ) : null}
+      </Modal>
     </>
   );
 }

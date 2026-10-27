@@ -27,8 +27,7 @@ export function IconAction({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "inline-flex shrink-0 items-center justify-center border transition-colors duration-fast",
-        size === "sm" ? "min-h-8 min-w-8" : "min-h-9 min-w-9",
+         "inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl border transition-colors duration-fast",
         "disabled:cursor-not-allowed disabled:opacity-45",
         variant === "danger" &&
           "border-state-error/40 text-state-error hover:bg-state-error hover:text-ivory",

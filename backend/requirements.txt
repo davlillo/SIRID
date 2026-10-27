@@ -1,5 +1,6 @@
 alembic==1.14.1
 aiosmtplib==3.0.2
+cryptography==46.0.3
 asyncpg==0.30.0
 email-validator==2.2.0
 fastapi==0.115.6
@@ -10,6 +11,7 @@ httpx==0.28.1
 Jinja2==3.1.5
 PyJWT==2.10.1
 pydantic-settings==2.7.1
+Pillow==12.3.0
 python-multipart==0.0.20
 sqlalchemy[asyncio]==2.0.36
 tzdata==2024.2

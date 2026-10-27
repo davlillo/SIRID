@@ -16,7 +16,7 @@ export function Spinner({ className }: { className?: string }) {
 
 export function LoadingBlock({ label = "Cargando datos" }: { label?: string }) {
   return (
-    <div className="flex items-center gap-3 border border-charcoal/15 bg-sand/30 px-5 py-8">
+    <div className="flex items-center gap-3 rounded-2xl border border-charcoal/15 bg-sand/30 px-5 py-8">
       <Spinner />
       <TechnicalLabel>{label}</TechnicalLabel>
     </div>
@@ -33,7 +33,7 @@ export function EmptyState({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="technical-grid border border-dashed border-charcoal/30 px-6 py-14 text-center">
+    <div className="technical-grid rounded-2xl border border-dashed border-charcoal/30 px-6 py-14 text-center">
       <TechnicalLabel>EMPTY_STATE</TechnicalLabel>
       <h3 className="mt-3 font-display text-2xl font-semibold">{title}</h3>
       <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-charcoal/65">{description}</p>
@@ -54,7 +54,7 @@ export function ErrorState({
   return (
     <div
       role="alert"
-      className="border-l-4 border-state-error border-y border-r border-y-charcoal/15 border-r-charcoal/15 bg-ivory px-6 py-6"
+      className="rounded-2xl border-l-4 border-state-error border-y border-r border-y-charcoal/15 border-r-charcoal/15 bg-ivory px-6 py-6"
     >
       <TechnicalLabel className="text-state-error">ERROR</TechnicalLabel>
       <h3 className="mt-2 font-display text-xl font-semibold">{title}</h3>

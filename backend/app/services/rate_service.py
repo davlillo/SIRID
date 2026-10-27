@@ -44,6 +44,8 @@ class RateService:
         rate = await self.rates.active_on(facility_id, local_date)
         if rate is None:
             raise RateNotAvailable("La instalación no tiene una tarifa activa para esa fecha.")
+        if rate.amount <= 0:
+            raise InvalidRate("La tarifa vigente debe ser mayor que cero. Solicite al encargado que la actualice.")
 
         # La duracion valida la decide el rango de horario (assert_fits_slots).
         return Quote(
@@ -59,8 +61,8 @@ class RateService:
         return await self.rates.list_for_facility(facility_id)
 
     async def create(self, facility_id: UUID, payload: dict) -> FacilityRateModel:
-        if payload["amount"] < 0:
-            raise InvalidRate("El precio no puede ser negativo.")
+        if payload["amount"] <= 0:
+            raise InvalidRate("El precio debe ser mayor que cero.")
         if payload["minimum_minutes"] <= 0:
             raise InvalidRate("La duración del bloque debe ser mayor que cero.")
         valid_until = payload.get("valid_until")
@@ -95,8 +97,8 @@ class RateService:
         today = datetime.now(settings.timezone).date()
         if effective_from < today:
             raise InvalidRate("La nueva tarifa no puede comenzar en una fecha pasada.")
-        if amount < 0:
-            raise InvalidRate("El precio no puede ser negativo.")
+        if amount <= 0:
+            raise InvalidRate("El precio debe ser mayor que cero.")
 
         overlapping = await self.rates.active_rates_on(facility_id, effective_from)
         if not overlapping:

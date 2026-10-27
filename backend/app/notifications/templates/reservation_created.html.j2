@@ -1,15 +1,16 @@
 {% extends "_base.html.j2" %}
 
-{% block title %}Recibimos tu solicitud.{% endblock %}
+{% block preheader %}{{ customer_name }}, recibimos su solicitud para {{ facility_name }}. Todavía está pendiente de confirmación.{% endblock %}
+{% block title %}Su próxima visita ya está en marcha.{% endblock %}
 
 {% block intro %}
-  tu solicitud quedo registrada en estado <strong>pendiente</strong>. Un administrador la revisara
-  y te avisaremos por este mismo medio cuando quede confirmada.
+  Recibimos su solicitud para <strong>{{ facility_name }}</strong> en <strong>{{ organization_name }}</strong>.
+  El encargado revisará los detalles y le avisaremos por este medio cuando esté confirmada.
 {% endblock %}
 
 {% block extra %}
-  <p style="margin:20px 0 0;font-size:13px;line-height:1.6;color:rgba(25,24,23,0.65);">
-    La franja queda apartada mientras la solicitud este pendiente. Si necesitas otro horario,
-    puedes cancelarla desde tu panel y volver a solicitar.
+  <p style="margin:22px 0 0;padding:16px 18px;background:#e8d8be;border-left:3px solid #c65f45;font-size:13px;line-height:1.8;color:#49352c;">
+    <strong>Solicitud recibida, aún no confirmada.</strong> La franja queda apartada mientras está pendiente.
+    Si necesita otro horario, puede cancelar la solicitud desde su cuenta y crear una nueva.
   </p>
 {% endblock %}

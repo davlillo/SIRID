@@ -10,7 +10,9 @@ from app.core.config import settings
 from app.core.security import hash_password
 from app.domain.enums import UserRole
 from app.domain.errors import (
+    AccountDisabled,
     AdminRequired,
+    AuthenticationFailed,
     OrganizationEmailMismatch,
     OrganizationNotFound,
     UserEmailTaken,
@@ -32,6 +34,18 @@ class UserService:
         if user is None:
             raise UserNotFound("The session points to a user that no longer exists.")
         return user
+
+    async def assert_can_access(self, user: UserModel) -> None:
+        """Apply the same account policy at login and on subsequent requests."""
+        # Newly created Google users receive their active default at flush time.
+        if user.is_active is False:
+            raise AccountDisabled("Tu cuenta esta desactivada. Contacta al administrador.")
+        # ADMIN is global, even when the bootstrap organization is inactive.
+        if user.role == UserRole.ADMIN:
+            return
+        organization = await self.organizations.get_by_id(user.organization_id)
+        if organization is None or not organization.is_active:
+            raise AuthenticationFailed("This account cannot access SIRID.")
 
     async def list_users(self, actor: UserModel) -> list[UserModel]:
         self._require_admin(actor)

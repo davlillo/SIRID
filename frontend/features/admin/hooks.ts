@@ -57,7 +57,7 @@ export function useCreateClient() {
     mutationFn: adminApi.createClient,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "clients"] });
-      notify("Cliente registrado.", "success");
+      notify("Cliente registrado. El envío del correo se procesa por separado; consulte el historial en el icono de correo.", "success");
     },
     onError: (error) => {
       notify(
@@ -143,6 +143,9 @@ export function useRegisterPayment() {
 }
 
 type Action = "confirm" | "cancel" | "complete";
+type ReservationActionInput =
+  | { id: string; action: "cancel"; note: string }
+  | { id: string; action: "confirm" | "complete" };
 
 const ACTION_MESSAGE: Record<Action, string> = {
   confirm: "Reserva confirmada. Se envio el aviso al cliente.",
@@ -155,10 +158,11 @@ export function useReservationAction() {
   const { notify } = useToast();
 
   return useMutation({
-    mutationFn: ({ id, action, note }: { id: string; action: Action; note?: string }) => {
+    mutationFn: (input: ReservationActionInput) => {
+      const { id, action } = input;
+      if (input.action === "cancel") return adminApi.cancel(id, input.note);
       if (action === "confirm") return adminApi.confirm(id);
-      if (action === "complete") return adminApi.complete(id);
-      return adminApi.cancel(id, note);
+      return adminApi.complete(id);
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["admin"] });

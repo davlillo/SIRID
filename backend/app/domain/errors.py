@@ -117,6 +117,12 @@ class FacilitySlugTaken(DomainError):
     slug = "facility-slug-taken"
 
 
+class InvalidFacilityPhoto(DomainError):
+    status = 422
+    title = "Foto de instalación inválida"
+    slug = "invalid-facility-photo"
+
+
 class InvalidSchedule(DomainError):
     status = 422
     title = "Horario invalido"

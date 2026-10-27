@@ -29,15 +29,22 @@ export default function AdminOrganizationsPage() {
       slug: slug.trim().toLowerCase(),
       email_domain: emailDomain.trim().toLowerCase().replace(/^@/, ""),
     };
-    if (editingId) {
-      await updateOrganization.mutateAsync({ id: editingId, body });
-      setEditingId(null);
-    } else {
-      await createOrganization.mutateAsync(body);
+    try {
+      if (editingId) {
+        await updateOrganization.mutateAsync({
+          id: editingId,
+          body: { ...body, email_domain: body.email_domain || null },
+        });
+        setEditingId(null);
+      } else {
+        await createOrganization.mutateAsync(body);
+      }
+      setName("");
+      setSlug("");
+      setEmailDomain("");
+    } catch {
+      // The mutation displays the error; retain the form values for retry.
     }
-    setName("");
-    setSlug("");
-    setEmailDomain("");
   }
 
   return (
@@ -53,7 +60,7 @@ export default function AdminOrganizationsPage() {
 
       <form
         onSubmit={submit}
-        className="mt-8 grid gap-4 border border-charcoal bg-sand/30 p-5 md:grid-cols-3"
+        className="sirid-panel mt-8 grid items-start gap-5 bg-sand/25 p-5 sm:p-6 lg:grid-cols-3"
       >
         <Field label="Nombre" htmlFor="organization-name">
           <Input
@@ -69,23 +76,31 @@ export default function AdminOrganizationsPage() {
           <Input
             id="organization-slug"
             required
+            minLength={2}
             pattern="[a-z0-9]+(-[a-z0-9]+)*"
             maxLength={80}
             value={slug}
             onChange={(event) => setSlug(event.target.value.toLowerCase())}
           />
         </Field>
-        <Field label="Dominio Google" htmlFor="organization-domain" hint="Ejemplo: ejemplo.org">
+        <Field
+          label={editingId ? "Dominio de correo (opcional)" : "Dominio de correo"}
+          htmlFor="organization-domain"
+          hint={editingId
+            ? "Déjalo vacío para quitar el acceso por dominio de Google."
+            : "Ejemplo: ejemplo.org. La API lo requiere al crear la organización."}
+        >
           <Input
             id="organization-domain"
-            required
+            required={!editingId}
             type="text"
+            minLength={3}
             maxLength={255}
             value={emailDomain}
             onChange={(event) => setEmailDomain(event.target.value.toLowerCase())}
           />
         </Field>
-        <div className="md:col-span-3">
+        <div className="flex flex-wrap gap-3 lg:col-span-3">
           <Button
             type="submit"
             disabled={createOrganization.isPending || updateOrganization.isPending}
@@ -98,9 +113,9 @@ export default function AdminOrganizationsPage() {
           </Button>
           {editingId ? (
             <Button
-              className="ml-2"
               type="button"
               variant="ghost"
+              disabled={updateOrganization.isPending}
               onClick={() => {
                 setEditingId(null);
                 setName("");
@@ -131,15 +146,15 @@ export default function AdminOrganizationsPage() {
           {organizations.data?.map((organization) => (
             <li
               key={organization.id}
-              className="flex flex-wrap items-center justify-between gap-4 border border-charcoal/20 bg-ivory px-4 py-3"
+              className="sirid-panel flex flex-wrap items-center justify-between gap-4 px-5 py-5"
             >
-              <div>
-                <h2 className="font-display text-xl font-semibold">{organization.name}</h2>
-                <p className="mt-1 font-mono text-xs text-charcoal/60">
+              <div className="min-w-0">
+                <h2 className="break-words font-display text-xl font-semibold">{organization.name}</h2>
+                <p className="mt-1 break-all font-mono text-xs text-charcoal/60">
                   /{organization.slug} · {organization.email_domain ?? "Dominio sin asignar"}
                 </p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <ButtonLink
                   href={`/admin/organizaciones/${organization.id}`}
                   size="sm"
@@ -151,6 +166,7 @@ export default function AdminOrganizationsPage() {
                   type="button"
                   size="sm"
                   variant="secondary"
+                  disabled={createOrganization.isPending || updateOrganization.isPending}
                   onClick={() => {
                     setEditingId(organization.id);
                     setName(organization.name);

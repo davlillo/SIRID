@@ -53,7 +53,7 @@ export function RateForm({ facility }: { facility: Facility }) {
   });
 
   return (
-    <section className="border border-charcoal/20 bg-ivory p-5 sm:p-6">
+    <section className="rounded-2xl border border-charcoal/15 bg-ivory p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <TechnicalLabel>TARIFA DE {facility.name}</TechnicalLabel>
@@ -275,7 +275,7 @@ export function RateForm({ facility }: { facility: Facility }) {
                 <div>
                   <span className="font-medium">{rate.name}</span>
                   {rate.id === currentRate?.id ? (
-                    <span className="ml-2 border border-olive px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-olive">
+                     <span className="ml-2 rounded-full border border-olive px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-olive">
                       Vigente
                     </span>
                   ) : null}

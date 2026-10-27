@@ -117,5 +117,10 @@ export function facilityImage(
   kind: FacilityKind,
   images: { url: string }[] = [],
 ): string {
-  return images[0]?.url ?? KIND_IMAGE[kind];
+  const url = images[0]?.url;
+  if (url?.startsWith("/media/facilities/")) {
+    const publicApi = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/v1";
+    return `${publicApi.replace(/\/$/, "")}${url}`;
+  }
+  return url ?? KIND_IMAGE[kind];
 }

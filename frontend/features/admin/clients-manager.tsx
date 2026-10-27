@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, RotateCcw, Trash2 } from "lucide-react";
+import { Mail, Pencil, Plus, RotateCcw, Trash2, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/atoms/button";
@@ -9,10 +9,13 @@ import { Field, Input } from "@/components/atoms/field";
 import { Modal } from "@/components/atoms/modal";
 import { EmptyState, ErrorState, LoadingBlock } from "@/components/atoms/states";
 import { TechnicalLabel } from "@/components/atoms/technical-label";
+import { PasswordInput } from "@/components/atoms/password-input";
 import { cn } from "@/lib/cn";
 import type { Client } from "@/lib/types";
 
 import { useAdminClients, useCreateClient, useUpdateClient } from "./hooks";
+import { ClientEmailPanel } from "./client-email-panel";
+import { OrganizationSmtpSettings } from "./smtp-settings";
 
 type ClientForm = {
   first_name: string;
@@ -44,6 +47,8 @@ export function ClientsManager({ organizationId }: { organizationId: string }) {
   const [attempted, setAttempted] = useState(false);
   const [search, setSearch] = useState("");
   const [form, setForm] = useState<ClientForm>(EMPTY_FORM);
+  const [password, setPassword] = useState("");
+  const [emailClient, setEmailClient] = useState<Client | null>(null);
 
   const errors = validateClient(form);
   const hasErrors = Object.values(errors).some(Boolean);
@@ -69,9 +74,11 @@ export function ClientsManager({ organizationId }: { organizationId: string }) {
     setEditing(null);
     setForm(EMPTY_FORM);
     setAttempted(false);
+    setPassword("");
   }
 
   function startCreating() {
+    setPassword("");
     setEditing(null);
     setCreating(true);
     setForm(EMPTY_FORM);
@@ -79,6 +86,7 @@ export function ClientsManager({ organizationId }: { organizationId: string }) {
   }
 
   function startEditing(client: Client) {
+    setPassword("");
     setCreating(false);
     setEditing(client);
     setAttempted(false);
@@ -96,45 +104,87 @@ export function ClientsManager({ organizationId }: { organizationId: string }) {
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setAttempted(true);
-    if (hasErrors) return;
+    if (hasErrors || (password.length > 0 && password.length < 8)) return;
 
-    if (editing) {
-      const body = changedFields(editing, form);
-      if (Object.keys(body).length === 0) {
-        resetForm();
-        return;
+    try {
+      if (editing) {
+        const body = changedFields(editing, form);
+        if (Object.keys(body).length === 0 && !password) {
+          resetForm();
+          return;
+        }
+        await update.mutateAsync({ id: editing.id, body: { ...body, ...(password ? { password } : {}) } });
+      } else {
+        await create.mutateAsync({
+          organization_id: organizationId,
+          ...form,
+          ...(password ? { password } : {}),
+        });
       }
-      await update.mutateAsync({ id: editing.id, body });
-    } else {
-      await create.mutateAsync({
-        organization_id: organizationId,
-        ...form,
-      });
+      resetForm();
+    } catch {
+      // Mutation hooks display the server error; keep the form for correction.
     }
-    resetForm();
   }
 
   async function confirmDeactivation() {
     if (!toDeactivate) return;
-    await update.mutateAsync({ id: toDeactivate.id, body: { is_active: false } });
-    setToDeactivate(null);
+    try {
+      await update.mutateAsync({ id: toDeactivate.id, body: { is_active: false } });
+      setToDeactivate(null);
+    } catch {
+      // Keep the confirmation open when the update fails.
+    }
   }
 
   const shown = (key: keyof ClientForm) => visibleError(errors[key], form[key], attempted);
+
+  function clientActions(client: Client) {
+    return (
+      <div className="flex justify-end gap-2">
+        <IconAction label={`Correo de acceso de ${client.first_name}`} onClick={() => setEmailClient(client)}>
+          <Mail className="h-4 w-4" aria-hidden />
+        </IconAction>
+        <IconAction label={`Editar a ${client.first_name} ${client.last_name}`} onClick={() => startEditing(client)}>
+          <Pencil className="h-4 w-4" aria-hidden />
+        </IconAction>
+        <IconAction
+          label={`${client.is_active ? "Dar de baja" : "Reactivar"} a ${client.first_name} ${client.last_name}`}
+          variant={client.is_active ? "danger" : "default"}
+          disabled={update.isPending}
+          onClick={() => client.is_active ? setToDeactivate(client) : update.mutate({ id: client.id, body: { is_active: true } })}
+        >
+          {client.is_active ? <Trash2 className="h-4 w-4" aria-hidden /> : <RotateCcw className="h-4 w-4" aria-hidden />}
+        </IconAction>
+      </div>
+    );
+  }
 
   return (
     <>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <TechnicalLabel>CLIENTS_01</TechnicalLabel>
+          <TechnicalLabel>ORGANIZACIÓN / CLIENTES</TechnicalLabel>
           <h2 className="mt-3 font-display text-3xl font-semibold tracking-[-0.03em]">
             Clientes
           </h2>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-charcoal/65">
+            Cree cuentas, gestione sus accesos y consulte el estado de los correos. Cada cliente pertenece a esta organización.
+          </p>
         </div>
         <Button type="button" onClick={startCreating}>
+          <Plus className="h-4 w-4" aria-hidden />
           Nuevo cliente
         </Button>
       </div>
+
+      {clients.isSuccess ? (
+        <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl border border-charcoal/10 bg-sand/30 px-5 py-4 text-sm">
+          <span className="inline-flex items-center gap-2 font-medium"><Users className="h-4 w-4 text-olive" aria-hidden /> {scoped.length} registrados</span>
+          <span className="text-charcoal/70">{scoped.filter((client) => client.is_active).length} activos</span>
+          <span className="text-charcoal/70">{scoped.filter((client) => !client.is_active).length} de baja</span>
+        </div>
+      ) : null}
 
       {clients.isPending ? <div className="mt-8"><LoadingBlock /></div> : null}
       {clients.isError ? (
@@ -143,8 +193,8 @@ export function ClientsManager({ organizationId }: { organizationId: string }) {
         </div>
       ) : null}
 
-      <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1fr)_min(100%,22rem)] xl:items-stretch">
-        <section className="flex min-w-0 flex-col border border-charcoal/20 bg-ivory">
+      <div className="mt-6">
+        <section className="sirid-table-wrap flex min-w-0 flex-col">
           <div className="flex flex-col gap-3 border-b border-charcoal/15 px-4 py-3 sm:flex-row sm:items-end sm:justify-between">
             <TechnicalLabel>CLIENTES REGISTRADOS</TechnicalLabel>
             <div className="w-full sm:max-w-xs">
@@ -176,26 +226,26 @@ export function ClientsManager({ organizationId }: { organizationId: string }) {
           ) : null}
 
           {visibleClients.length > 0 ? (
-            <div className="min-h-0 flex-1">
-              <table className="w-full table-fixed border-collapse text-sm">
+            <div className="hidden min-h-0 flex-1 md:block">
+               <table className="w-full table-fixed border-collapse text-sm">
                 <caption className="sr-only">Clientes registrados en la organización</caption>
                 <thead>
                   <tr className="bg-charcoal text-ivory">
                     <th
                       scope="col"
-                      className="w-[28%] px-3 py-2.5 text-left font-mono text-[10px] uppercase tracking-[0.14em]"
+                      className="w-[30%] px-4 py-3 text-left font-mono text-[11px] uppercase tracking-[0.12em]"
                     >
                       Cliente
                     </th>
                     <th
                       scope="col"
-                      className="w-[22%] px-3 py-2.5 text-left font-mono text-[10px] uppercase tracking-[0.14em]"
+                      className="w-[18%] px-3 py-3 text-left font-mono text-[11px] uppercase tracking-[0.12em]"
                     >
                       DUI
                     </th>
                     <th
                       scope="col"
-                      className="w-[20%] px-3 py-2.5 text-left font-mono text-[10px] uppercase tracking-[0.14em]"
+                      className="w-[16%] px-3 py-3 text-left font-mono text-[11px] uppercase tracking-[0.12em]"
                     >
                       Teléfono
                     </th>
@@ -207,7 +257,7 @@ export function ClientsManager({ organizationId }: { organizationId: string }) {
                     </th>
                     <th
                       scope="col"
-                      className="w-[18%] px-3 py-2.5 text-right font-mono text-[10px] uppercase tracking-[0.14em]"
+                      className="w-[24%] px-4 py-3 text-right font-mono text-[11px] uppercase tracking-[0.12em]"
                     >
                       Acciones
                     </th>
@@ -267,41 +317,15 @@ export function ClientsManager({ organizationId }: { organizationId: string }) {
                         <span
                           className={
                             client.is_active
-                              ? "inline-block border border-olive px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-olive"
-                              : "inline-block border border-charcoal/30 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-charcoal/55"
+                               ? "inline-block rounded-full border border-olive px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-olive"
+                               : "inline-block rounded-full border border-charcoal/30 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-charcoal/55"
                           }
                         >
                           {client.is_active ? "Activo" : "De baja"}
                         </span>
                       </td>
                       <td className="px-3 py-2.5 align-top">
-                        <div className="flex justify-end gap-1.5">
-                          <IconAction
-                            label={`Editar a ${client.first_name} ${client.last_name}`}
-                            onClick={() => startEditing(client)}
-                          >
-                            <Pencil className="h-4 w-4" aria-hidden />
-                          </IconAction>
-                          {client.is_active ? (
-                            <IconAction
-                              label={`Dar de baja a ${client.first_name} ${client.last_name}`}
-                              variant="danger"
-                              onClick={() => setToDeactivate(client)}
-                            >
-                              <Trash2 className="h-4 w-4" aria-hidden />
-                            </IconAction>
-                          ) : (
-                            <IconAction
-                              label={`Reactivar a ${client.first_name} ${client.last_name}`}
-                              disabled={update.isPending}
-                              onClick={() =>
-                                update.mutate({ id: client.id, body: { is_active: true } })
-                              }
-                            >
-                              <RotateCcw className="h-4 w-4" aria-hidden />
-                            </IconAction>
-                          )}
-                        </div>
+                        {clientActions(client)}
                       </td>
                     </tr>
                   ))}
@@ -311,15 +335,36 @@ export function ClientsManager({ organizationId }: { organizationId: string }) {
           ) : null}
         </section>
 
-        <div className="min-h-full">
-          {showForm ? (
+        {visibleClients.length > 0 ? (
+          <ul className="mt-4 space-y-3 md:hidden" aria-label="Clientes de la organización">
+            {visibleClients.map((client) => (
+              <li key={client.id} className="sirid-panel p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="min-w-0 break-words font-semibold">{client.first_name} {client.last_name}</h3>
+                  <span className="shrink-0 rounded-full border border-charcoal/20 px-2.5 py-1 text-xs">{client.is_active ? "Activo" : "De baja"}</span>
+                </div>
+                <p className="mt-1 break-all text-sm text-charcoal/65">{isPlaceholderEmail(client.email) ? "Sin correo registrado" : client.email}</p>
+                <dl className="my-4 grid grid-cols-2 gap-3 text-sm">
+                  <div><dt className="text-xs text-charcoal/60">DUI</dt><dd className="mt-1 font-mono">{client.dui}</dd></div>
+                  <div><dt className="text-xs text-charcoal/60">Teléfono</dt><dd className="mt-1 font-mono">{client.phone}</dd></div>
+                </dl>
+                {clientActions(client)}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+
+      <OrganizationSmtpSettings organizationId={organizationId} />
+
+      <Modal open={showForm} title={editing ? "Editar cliente" : "Nuevo cliente"} onClose={() => { if (!isSaving) resetForm(); }}>
             <form
               onSubmit={submit}
               noValidate
-              className="h-full border border-charcoal bg-sand/30 p-5"
+              className="space-y-5"
             >
-          <TechnicalLabel>{editing ? "EDITAR CLIENTE" : "NUEVO CLIENTE"}</TechnicalLabel>
-          <div className="mt-4 grid gap-4">
+          <p className="text-sm leading-6 text-charcoal/65">Los datos obligatorios identifican al cliente. La contraseña es opcional si utilizará una invitación por correo.</p>
+          <div className="grid gap-5 sm:grid-cols-2">
             <Field
               label="Nombres"
               htmlFor="client-first-name"
@@ -408,7 +453,7 @@ export function ClientsManager({ organizationId }: { organizationId: string }) {
             <Field
               label="Correo electrónico"
               htmlFor="client-email"
-              hint="Se usa para avisarle de sus reservaciones."
+              hint="Cualquier dominio. La cuenta queda vinculada a esta organización."
               error={shown("email")}
               className="sm:col-span-2"
             >
@@ -430,6 +475,11 @@ export function ClientsManager({ organizationId }: { organizationId: string }) {
                 }
               />
             </Field>
+            <Field className="sm:col-span-2" label={editing ? "Nueva contraseña (opcional)" : "Contraseña inicial (opcional)"} htmlFor="client-password"
+              hint={editing ? "Deje vacío para conservar la contraseña actual." : "El cliente siempre recibirá un enlace para elegir su propia contraseña, aunque se asigne una inicial. Nunca se envían contraseñas por correo."}
+              error={password.length > 0 && password.length < 8 ? "Use al menos 8 caracteres." : undefined}>
+              <PasswordInput id="client-password" autoComplete="new-password" minLength={8} maxLength={128} value={password} onChange={(event) => setPassword(event.target.value)} />
+            </Field>
           </div>
 
           {attempted && hasErrors ? (
@@ -446,24 +496,20 @@ export function ClientsManager({ organizationId }: { organizationId: string }) {
                   ? "Guardar cambios"
                   : "Registrar cliente"}
             </Button>
-            <Button type="button" variant="ghost" onClick={resetForm}>
+            <Button type="button" variant="ghost" disabled={isSaving} onClick={resetForm}>
               Cancelar
             </Button>
           </div>
             </form>
-          ) : (
-            <aside className="flex h-full min-h-[12rem] flex-col justify-center border border-dashed border-charcoal/25 bg-ivory/50 p-6">
-              <TechnicalLabel>REGISTRO</TechnicalLabel>
-              <p className="mt-3 text-sm leading-6 text-charcoal/60">
-                Pulsa <strong className="font-semibold text-charcoal">Nuevo cliente</strong> para
-                abrir el formulario de alta, o el icono de{" "}
-                <strong className="font-semibold text-charcoal">lápiz</strong> en la tabla para
-                editar.
-              </p>
-            </aside>
-          )}
-        </div>
-      </div>
+      </Modal>
+
+      <Modal
+        open={emailClient !== null}
+        title="Correo de acceso"
+        onClose={() => setEmailClient(null)}
+      >
+        {emailClient ? <ClientEmailPanel key={emailClient.id} client={emailClient} /> : null}
+      </Modal>
 
       <Modal
         open={toDeactivate !== null}

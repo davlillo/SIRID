@@ -246,6 +246,53 @@ class TestLifecycle:
         assert response.json()["status"] == "CANCELLED"
         assert response.json()["admin_note"] == "Mantenimiento del cesped."
 
+    async def test_an_encargado_cannot_cancel_without_a_reason(
+        self, client, customer, encargado, facility
+    ):
+        reservation = await a_pending_reservation(client, customer, facility)
+        authenticate(client, encargado)
+
+        for payload in (None, {"note": "   "}):
+            response = await client.post(
+                f"/v1/admin/reservations/{reservation['id']}/cancel", json=payload
+            )
+            assert response.status_code == 422
+
+    async def test_cancel_confirmed_reservation_releases_the_slot(
+        self, client, customer, other_customer, encargado, facility
+    ):
+        reservation = await a_pending_reservation(client, customer, facility)
+        await confirm_paid_reservation(client, encargado, reservation)
+
+        cancelled = await client.post(
+            f"/v1/admin/reservations/{reservation['id']}/cancel",
+            json={"note": "Cliente no asistirá"},
+        )
+        authenticate(client, other_customer)
+        replacement = await client.post(
+            "/v1/reservations", json={"facility_id": str(facility.id), **slot_at(18)}
+        )
+
+        assert cancelled.status_code == 200
+        assert cancelled.json()["status"] == "CANCELLED"
+        assert replacement.status_code == 201
+
+    async def test_a_completed_reservation_cannot_be_cancelled(
+        self, client, customer, encargado, facility, db_session
+    ):
+        reservation = await a_pending_reservation(client, customer, facility)
+        row = await db_session.get(ReservationModel, uuid.UUID(reservation["id"]))
+        row.status = ReservationStatus.COMPLETED
+        await db_session.commit()
+        authenticate(client, encargado)
+
+        response = await client.post(
+            f"/v1/admin/reservations/{reservation['id']}/cancel",
+            json={"note": "Motivo de prueba"},
+        )
+
+        assert response.status_code == 409
+
     async def test_the_encargado_list_exposes_the_customer(
         self, client, customer, encargado, facility
     ):

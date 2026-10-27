@@ -12,6 +12,17 @@
   --dvl-olive: #65705a;
   --dvl-charcoal: #191817;
 
+  /* Colores de interfaz: la marca permanece intacta; cambian los roles por tema. */
+  --dvl-ui-coffee: 73 53 44;
+  --dvl-ui-terracotta: 198 95 69;
+  --dvl-ui-sand: 232 216 190;
+  --dvl-ui-ivory: 247 243 234;
+  --dvl-ui-olive: 101 112 90;
+  --dvl-ui-charcoal: 25 24 23;
+  --dvl-ui-muted: 107 104 100;
+  --dvl-ui-error: 140 47 34;
+  --dvl-grid-line: rgba(25, 24, 23, 0.08);
+
   --dvl-bg: var(--dvl-ivory);
   --dvl-fg: var(--dvl-charcoal);
   --dvl-surface: var(--dvl-sand);
@@ -47,6 +58,15 @@
 }
 
 [data-theme="dark"] {
+  --dvl-ui-coffee: 224 186 156;
+  --dvl-ui-terracotta: 229 147 117;
+  --dvl-ui-sand: 53 46 40;
+  --dvl-ui-ivory: 25 24 23;
+  --dvl-ui-olive: 175 194 157;
+  --dvl-ui-charcoal: 247 243 234;
+  --dvl-ui-muted: 190 181 171;
+  --dvl-ui-error: 245 151 136;
+  --dvl-grid-line: rgba(247, 243, 234, 0.07);
   --dvl-bg: #191817;
   --dvl-fg: #f7f3ea;
   --dvl-surface: #242220;

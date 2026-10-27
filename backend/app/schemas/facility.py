@@ -33,7 +33,7 @@ class ScheduleResponse(ScheduleEntry):
 
 class RateCreate(BaseModel):
     name: str = Field(min_length=2, max_length=120)
-    amount: Decimal = Field(ge=0, max_digits=10, decimal_places=2)
+    amount: Decimal = Field(gt=0, max_digits=10, decimal_places=2)
     currency: str = Field(default="USD", min_length=3, max_length=3)
     minimum_minutes: int = Field(gt=0, le=1440)
     valid_from: date
@@ -44,7 +44,7 @@ class RateCreate(BaseModel):
 class RatePublishRequest(BaseModel):
     """Nueva version de la tarifa vigente sin alterar cotizaciones historicas."""
 
-    amount: Decimal = Field(ge=0, max_digits=10, decimal_places=2)
+    amount: Decimal = Field(gt=0, max_digits=10, decimal_places=2)
     effective_from: date
     # Unidad de tiempo del precio. Si se omite se conserva la de la tarifa vigente.
     minimum_minutes: int | None = Field(default=None, ge=15, le=1440)
@@ -96,6 +96,7 @@ class FacilityDetailResponse(FacilityResponse):
 
 
 class FacilityCreate(BaseModel):
+    photo: str | None = Field(default=None, max_length=7_000_000)
     organization_id: UUID
     slug: str = Field(
         min_length=3, max_length=120, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
@@ -124,6 +125,8 @@ class FacilityCreate(BaseModel):
 
 
 class FacilityUpdate(BaseModel):
+    # Omitted preserves the current photo; null removes it.
+    photo: str | None = Field(default=None, max_length=7_000_000)
     slug: str | None = Field(default=None, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
     name: str | None = Field(default=None, min_length=2, max_length=160)
     description: str | None = Field(default=None, min_length=10, max_length=4000)

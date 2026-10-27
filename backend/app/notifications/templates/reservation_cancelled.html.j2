@@ -1,20 +1,22 @@
 {% extends "_base.html.j2" %}
 
-{% block title %}Tu reserva fue cancelada.{% endblock %}
+{% block preheader %}{{ customer_name }}, su reserva de {{ facility_name }} fue cancelada. Consulte los detalles y el motivo.{% endblock %}
+{% block title %}Su reserva fue cancelada.{% endblock %}
 
 {% block intro %}
-  la reserva indicada abajo quedo cancelada y la franja vuelve a estar disponible para otras
-  personas.
+  Le informamos que su reserva de <strong>{{ facility_name }}</strong>, en <strong>{{ organization_name }}</strong>,
+  fue cancelada. El horario vuelve a estar disponible para otras personas.
 {% endblock %}
 
 {% block extra %}
   {% if admin_note %}
   <p style="margin:20px 0 0;padding:14px 16px;background:#E8D8BE;border-left:3px solid #C65F45;font-size:13px;line-height:1.6;">
-    <strong style="font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;display:block;margin-bottom:6px;">Nota del administrador</strong>
+    <strong style="font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;display:block;margin-bottom:6px;">Nota del encargado</strong>
     {{ admin_note }}
   </p>
   {% endif %}
   <p style="margin:20px 0 0;font-size:13px;line-height:1.6;color:rgba(25,24,23,0.65);">
-    Puedes volver a solicitar el mismo espacio en otro horario desde el catalogo.
+    Puede solicitar otro horario desde el catálogo. Para aclaraciones sobre la cancelación o cualquier pago,
+    contacte al encargado de {{ organization_name }}.
   </p>
 {% endblock %}

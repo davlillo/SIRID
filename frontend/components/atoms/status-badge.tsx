@@ -23,7 +23,7 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em]",
+        "inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em]",
         RESERVATION_STYLES[status],
         className,
       )}
@@ -49,7 +49,7 @@ export function SlotBadge({ status }: { status: SlotStatus }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em]",
+        "inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em]",
         SLOT_STYLES[status],
       )}
     >
